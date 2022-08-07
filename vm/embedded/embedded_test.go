@@ -27,6 +27,7 @@ func TestDumpContractsABIMethods(t *testing.T) {
 	}
 	dump += "]\n"
 
+	// TODO
 	common.Expect(t, dump, `
 [
 {"address":"z1qxemdeddedxaccelerat0rxxxxxxxxxxp4tk22", "name":"Donate", "id":"cb7f8b2a", "signature":"Donate()"}

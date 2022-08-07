@@ -7,8 +7,9 @@ import (
 )
 
 const (
-	Decimals  = 100000000
-	SecsInDay = 24 * 60 * 60
+	Decimals   = 100000000
+	SecsInDay  = 24 * 60 * 60
+	SecsInHour = 60 * 60
 )
 
 var (
@@ -79,6 +80,14 @@ var (
 	SporkNameMinLength        = 5
 	SporkNameMaxLength        = 40
 	SporkDescriptionMaxLength = 400
+
+	/// === Htlc constants ===
+
+	HtlcPreimageMinLength       = 32
+	HtlcPreimageMaxLength       = 32
+	HtlcTimelockUnitSec   int64 = 60 * 60 // 1 hour
+	HtlcTimelockMinSec          = HtlcTimelockUnitSec * 1
+	HtlcTimelockMaxSec          = HtlcTimelockUnitSec * 24 * 30 * 12
 
 	/// === Swap constants ===
 

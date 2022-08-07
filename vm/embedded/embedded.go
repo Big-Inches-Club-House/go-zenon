@@ -142,6 +142,14 @@ func getOrigin() map[types.Address]*embeddedImplementation {
 			},
 			abi: cabi.ABIAccelerator,
 		},
+		types.HtlcContract: {
+			map[string]Method{
+				cabi.CreateHtlcMethodName:  &implementation.CreateHtlcMethod{cabi.CreateHtlcMethodName},
+				cabi.ReclaimHtlcMethodName: &implementation.ReclaimHtlcMethod{cabi.ReclaimHtlcMethodName},
+				cabi.UnlockHtlcMethodName:  &implementation.UnlockHtlcMethod{cabi.UnlockHtlcMethodName},
+			},
+			cabi.ABIHtlc,
+		},
 	}
 }
 
