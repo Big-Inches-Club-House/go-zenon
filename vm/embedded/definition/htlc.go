@@ -62,7 +62,6 @@ const (
 const (
 	HashTypeSHA3 uint8 = iota
 	HashTypeSHA256
-	HashTypeHASH160
 )
 
 var (

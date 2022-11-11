@@ -16,11 +16,9 @@ var (
 	htlcLog = common.EmbeddedLogger.New("contract", "htlc")
 )
 
-// TODO allow other hashtypes
-// TODO: make sure hashlock is valid given hashtype
 func checkHtlc(param definition.CreateHtlcParam) error {
 
-	if param.HashType != 0 {
+	if param.HashType != 0 && param.HashType != 1 {
 		return constants.ErrInvalidHashType
 	}
 
@@ -167,7 +165,6 @@ func (p *ReclaimHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, se
 
 	// can only reclaim after the entry is expired
 	if htlcInfo.ExpirationTime > momentum.Timestamp.Unix() {
-		// TODO new constant for reclaim not due?
 		return nil, constants.ReclaimNotDue
 	}
 
@@ -255,12 +252,19 @@ func (p *UnlockHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, sen
 		return nil, constants.ErrInvalidPreimage
 	}
 
-	// TODO support other hash types
-	if !bytes.Equal(crypto.Hash(param.Preimage), htlcInfo.HashLock) {
+	var hashedPreimage []byte
+	if htlcInfo.HashType == 0 {
+		hashedPreimage = crypto.Hash(param.Preimage)
+	} else if htlcInfo.HashType == 1 {
+		hashedPreimage = crypto.HashSHA256(param.Preimage)
+	} else {
+		// shouldn't get here
+	}
+
+	if !bytes.Equal(hashedPreimage, htlcInfo.HashLock) {
 		return nil, constants.ErrInvalidPreimage
 	}
 
-	// TODO fetch this?
 	timelock := definition.HtlcRef{
 		Id:       htlcInfo.Id,
 		LockType: []byte{2},
