@@ -56,8 +56,12 @@ func (a *HtlcApi) GetHtlcInfoById(id types.Hash) (*definition.HtlcInfo, error) {
 	return htlcInfo, nil
 }
 
-// should we return the refs and have the user query htlcInfos?
-func (a *HtlcApi) GetHtlcInfosByLockTypeAddress(locktype []byte, address types.Address, pageIndex, pageSize uint32) ([]*definition.HtlcInfo, error) {
+type HtlcInfoList struct {
+	Count uint32                 `json:"count"`
+	List  []*definition.HtlcInfo `json:"list"`
+}
+
+func (a *HtlcApi) GetHtlcInfosByLockTypeAddress(locktype []byte, address types.Address, pageIndex, pageSize uint32) (*HtlcInfoList, error) {
 	if pageSize > api.RpcMaxPageSize {
 		return nil, api.ErrPageSizeParamTooBig
 	}
@@ -85,13 +89,16 @@ func (a *HtlcApi) GetHtlcInfosByLockTypeAddress(locktype []byte, address types.A
 	listLen := len(list)
 	start, end := api.GetRange(pageIndex, pageSize, uint32(listLen))
 
-	return list[start:end], nil
+	return &HtlcInfoList{
+		Count: uint32(listLen),
+		List:  list[start:end],
+	}, nil
 }
 
-func (a *HtlcApi) GetHtlcInfosByTimeLockedAddress(address types.Address, pageIndex, pageSize uint32) ([]*definition.HtlcInfo, error) {
+func (a *HtlcApi) GetHtlcInfosByTimeLockedAddress(address types.Address, pageIndex, pageSize uint32) (*HtlcInfoList, error) {
 	return a.GetHtlcInfosByLockTypeAddress([]byte{2}, address, pageIndex, pageSize)
 }
 
-func (a *HtlcApi) GetHtlcInfosByHashLockedAddress(address types.Address, pageIndex, pageSize uint32) ([]*definition.HtlcInfo, error) {
+func (a *HtlcApi) GetHtlcInfosByHashLockedAddress(address types.Address, pageIndex, pageSize uint32) (*HtlcInfoList, error) {
 	return a.GetHtlcInfosByLockTypeAddress([]byte{3}, address, pageIndex, pageSize)
 }

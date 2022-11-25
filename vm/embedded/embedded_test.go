@@ -11,7 +11,12 @@ import (
 
 func TestDumpContractsABIMethods(t *testing.T) {
 	dumps := make([]string, 0)
+	// TODO update/add tests for AZ and HTLC
 	for addr, contract := range originEmbedded {
+		// this test is fundamentally broken and failing currently
+		// gets the contracts list from originEmbedded
+		// but dumps all methods regardless of when it was activated
+		// need to loop over embeddedImplementation.m
 		for _, method := range contract.abi.Methods {
 			dumps = append(dumps, fmt.Sprintf(`{"address":"%v", "name":"%v", "id":"%v", "signature":"%v"}`, addr, method.Name, hex.EncodeToString(method.Id()), method.Sig()))
 		}
@@ -27,7 +32,6 @@ func TestDumpContractsABIMethods(t *testing.T) {
 	}
 	dump += "]\n"
 
-	// TODO
 	common.Expect(t, dump, `
 [
 {"address":"z1qxemdeddedxaccelerat0rxxxxxxxxxxp4tk22", "name":"Donate", "id":"cb7f8b2a", "signature":"Donate()"}

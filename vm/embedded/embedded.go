@@ -34,7 +34,21 @@ type embeddedImplementation struct {
 var (
 	originEmbedded      = getOrigin()
 	acceleratorEmbedded = getAccelerator()
+	htlcEmbedded        = getHtlc()
 )
+
+func getHtlc() map[types.Address]*embeddedImplementation {
+	contracts := getAccelerator()
+	contracts[types.HtlcContract] = &embeddedImplementation{
+		map[string]Method{
+			cabi.CreateHtlcMethodName:  &implementation.CreateHtlcMethod{cabi.CreateHtlcMethodName},
+			cabi.ReclaimHtlcMethodName: &implementation.ReclaimHtlcMethod{cabi.ReclaimHtlcMethodName},
+			cabi.UnlockHtlcMethodName:  &implementation.UnlockHtlcMethod{cabi.UnlockHtlcMethodName},
+		},
+		cabi.ABIHtlc,
+	}
+	return contracts
+}
 
 func getAccelerator() map[types.Address]*embeddedImplementation {
 	contracts := getOrigin()
@@ -142,14 +156,6 @@ func getOrigin() map[types.Address]*embeddedImplementation {
 			},
 			abi: cabi.ABIAccelerator,
 		},
-		types.HtlcContract: {
-			map[string]Method{
-				cabi.CreateHtlcMethodName:  &implementation.CreateHtlcMethod{cabi.CreateHtlcMethodName},
-				cabi.ReclaimHtlcMethodName: &implementation.ReclaimHtlcMethod{cabi.ReclaimHtlcMethodName},
-				cabi.UnlockHtlcMethodName:  &implementation.UnlockHtlcMethod{cabi.UnlockHtlcMethodName},
-			},
-			cabi.ABIHtlc,
-		},
 	}
 }
 
@@ -163,14 +169,19 @@ func GetEmbeddedMethod(context vm_context.AccountVmContext, address types.Addres
 	}
 
 	var contractsMap map[types.Address]*embeddedImplementation
-	if context.IsAcceleratorSporkEnforced() {
+	if context.IsHtlcSporkEnforced() {
+		contractsMap = htlcEmbedded
+	} else if context.IsAcceleratorSporkEnforced() {
 		contractsMap = acceleratorEmbedded
 	} else {
 		contractsMap = originEmbedded
 	}
 
+	// contract address must exist in map
 	if p, found := contractsMap[address]; found {
+		// contract must implement the method
 		if method, err := p.abi.MethodById(abiSelector); err == nil {
+			// method must exist in the map
 			c, ok := p.m[method.Name]
 			if ok {
 				return c, nil
