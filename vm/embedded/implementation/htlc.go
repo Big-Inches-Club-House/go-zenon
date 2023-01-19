@@ -18,11 +18,11 @@ var (
 
 func checkHtlc(param definition.CreateHtlcParam) error {
 
-	if param.HashType != 0 && param.HashType != 1 {
+	if param.HashType != definition.HashTypeSHA3 && param.HashType != definition.HashTypeSHA256 {
 		return constants.ErrInvalidHashType
 	}
 
-	if len(param.HashLock) != 32 {
+	if len(param.HashLock) != int(definition.HashTypeDigestSizes[param.HashType]) {
 		return constants.ErrInvalidHashDigest
 	}
 
@@ -76,10 +76,6 @@ func (p *CreateHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, sen
 	common.DealWithErr(err)
 
 	// can't create htlc that is already expired
-	// what other constraints do we want to put on expiration time?
-	// e.g minumum duration?, max?
-	// went with raw time as opposed to blockheight to help coordinate across chains
-	// and to be the most flexible
 	if param.ExpirationTime <= momentum.Timestamp.Unix() {
 		return nil, constants.ErrInvalidExpirationTime
 	}
@@ -96,16 +92,14 @@ func (p *CreateHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, sen
 		HashLock:       param.HashLock,
 	}
 
-	// TODO get rid of magic number locktypes in this file
-
 	timelock := definition.HtlcRef{
 		Id:       htlcInfo.Id,
-		LockType: []byte{2},
+		LockType: definition.LockTypeTime,
 		Unlocker: sendBlock.Address,
 	}
 	hashlock := definition.HtlcRef{
 		Id:       htlcInfo.Id,
-		LockType: []byte{3},
+		LockType: definition.LockTypeHash,
 		Unlocker: param.HashLocked,
 	}
 
@@ -113,8 +107,7 @@ func (p *CreateHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, sen
 	common.DealWithErr(timelock.Save(context.Storage()))
 	common.DealWithErr(hashlock.Save(context.Storage()))
 
-	// TODO
-	htlcLog.Debug("created new entry", "htlcInfo", htlcInfo, "locker", sendBlock.Address)
+	htlcLog.Debug("created new entry", "htlcInfo", htlcInfo)
 	return nil, nil
 }
 
@@ -168,15 +161,14 @@ func (p *ReclaimHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, se
 		return nil, constants.ReclaimNotDue
 	}
 
-	// TODO better to construct or fetch this?
 	timelock := definition.HtlcRef{
 		Id:       htlcInfo.Id,
-		LockType: []byte{2},
+		LockType: definition.LockTypeTime,
 		Unlocker: htlcInfo.TimeLocked,
 	}
 	hashlock := definition.HtlcRef{
 		Id:       htlcInfo.Id,
-		LockType: []byte{3},
+		LockType: definition.LockTypeHash,
 		Unlocker: htlcInfo.HashLocked,
 	}
 
@@ -253,9 +245,9 @@ func (p *UnlockHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, sen
 	}
 
 	var hashedPreimage []byte
-	if htlcInfo.HashType == 0 {
+	if htlcInfo.HashType == definition.HashTypeSHA3 {
 		hashedPreimage = crypto.Hash(param.Preimage)
-	} else if htlcInfo.HashType == 1 {
+	} else if htlcInfo.HashType == definition.HashTypeSHA256 {
 		hashedPreimage = crypto.HashSHA256(param.Preimage)
 	} else {
 		// shouldn't get here
@@ -267,12 +259,12 @@ func (p *UnlockHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, sen
 
 	timelock := definition.HtlcRef{
 		Id:       htlcInfo.Id,
-		LockType: []byte{2},
+		LockType: definition.LockTypeTime,
 		Unlocker: htlcInfo.TimeLocked,
 	}
 	hashlock := definition.HtlcRef{
 		Id:       htlcInfo.Id,
-		LockType: []byte{3},
+		LockType: definition.LockTypeHash,
 		Unlocker: htlcInfo.HashLocked,
 	}
 
@@ -280,6 +272,7 @@ func (p *UnlockHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, sen
 	common.DealWithErr(timelock.Delete(context.Storage()))
 	common.DealWithErr(hashlock.Delete(context.Storage()))
 
+	// TODO include preimage?
 	htlcLog.Debug("unlocked htlc entry", "htlcInfo", htlcInfo)
 
 	return []*nom.AccountBlock{

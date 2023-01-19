@@ -81,14 +81,6 @@ var (
 	SporkNameMaxLength        = 40
 	SporkDescriptionMaxLength = 400
 
-	/// === Htlc constants ===
-
-	HtlcPreimageMinLength       = 32
-	HtlcPreimageMaxLength       = 32
-	HtlcTimelockUnitSec   int64 = 60 * 60 // 1 hour
-	HtlcTimelockMinSec          = HtlcTimelockUnitSec * 1
-	HtlcTimelockMaxSec          = HtlcTimelockUnitSec * 24 * 30 * 12
-
 	/// === Swap constants ===
 
 	// SwapAssetDecayEpochsOffset is the number of epochs before the decay kicks in

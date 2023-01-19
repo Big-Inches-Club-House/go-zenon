@@ -46,7 +46,6 @@ const (
 	CreateHtlcMethodName  = "CreateHtlc"
 	ReclaimHtlcMethodName = "ReclaimHtlc"
 	UnlockHtlcMethodName  = "UnlockHtlc"
-	// TODO Update/ExtendHtlc Method?
 
 	// re: reclaim vs revoke
 	// some other embedded contracts have "revoke" methods
@@ -57,19 +56,27 @@ const (
 	variableNameHtlcInfo = "htlcInfo"
 )
 
-// use crypto.Hash?
-// TODO: need to associate digest sizes for each hash type for entry validation
 const (
 	HashTypeSHA3 uint8 = iota
 	HashTypeSHA256
+)
+
+var HashTypeDigestSizes = map[uint8]uint8{
+	HashTypeSHA3:   32,
+	HashTypeSHA256: 32,
+}
+
+const (
+	LockTypeTime uint8 = iota + 2
+	LockTypeHash
 )
 
 var (
 	ABIHtlc = abi.JSONToABIContract(strings.NewReader(jsonHtlc))
 
 	htlcInfoKeyPrefix = []byte{1}
-	timeLockKeyPrefix = []byte{2}
-	hashLockKeyPrefix = []byte{3}
+	timeLockKeyPrefix = []byte{LockTypeTime}
+	hashLockKeyPrefix = []byte{LockTypeHash}
 )
 
 type CreateHtlcParam struct {
@@ -164,7 +171,7 @@ func GetHtlcInfo(context db.DB, id types.Hash) (*HtlcInfo, error) {
 }
 
 type HtlcRef struct {
-	LockType []byte // is this the best way to do it?
+	LockType uint8
 	Unlocker types.Address
 	Id       types.Hash
 }
@@ -175,38 +182,38 @@ func (entry *HtlcRef) Save(context db.DB) error {
 	// so for the refs, where we use the htlcInfo key as the ref, we need a nonempty value
 	// is there some sort of periodic cleanup of keys with empty values?
 
-	return context.Put(getHtlcRefKey(entry.LockType, entry.Unlocker, entry.Id), []byte{1})
+	return context.Put(getHtlcRefKey([]byte{entry.LockType}, entry.Unlocker, entry.Id), []byte{1})
 }
 
 func (entry *HtlcRef) Delete(context db.DB) error {
-	return context.Delete(getHtlcRefKey(entry.LockType, entry.Unlocker, entry.Id))
+	return context.Delete(getHtlcRefKey([]byte{entry.LockType}, entry.Unlocker, entry.Id))
 }
 
-func getHtlcRefKey(lockType []byte, unlocker types.Address, id types.Hash) []byte {
-	return common.JoinBytes(lockType, unlocker.Bytes(), id.Bytes())
+func getHtlcRefKey(lockTypePrefix []byte, unlocker types.Address, id types.Hash) []byte {
+	return common.JoinBytes(lockTypePrefix, unlocker.Bytes(), id.Bytes())
 }
 
 func isHtlcRefKey(key []byte) bool {
 	return key[0] == timeLockKeyPrefix[0] || key[0] == hashLockKeyPrefix[0]
 }
 
-func unmarshalHtlcRefKey(key []byte) ([]byte, *types.Hash, *types.Address, error) {
+func unmarshalHtlcRefKey(key []byte) (uint8, *types.Hash, *types.Address, error) {
 	if !isHtlcRefKey(key) {
-		return nil, nil, nil, errors.Errorf("invalid key! Not htlc ref key")
+		return 0, nil, nil, errors.Errorf("invalid key! Not htlc ref key")
 	}
 	h := new(types.Hash)
 	err := h.SetBytes(key[1+types.AddressSize:])
 	if err != nil {
-		return nil, nil, nil, err
+		return 0, nil, nil, err
 	}
 
 	addr := new(types.Address)
 	err = addr.SetBytes(key[1 : 1+types.AddressSize])
 	if err != nil {
-		return nil, nil, nil, err
+		return 0, nil, nil, err
 	}
 
-	return key[0:1], h, addr, nil
+	return key[0], h, addr, nil
 }
 
 func parseHtlcRef(key []byte, data []byte) (*HtlcRef, error) {
@@ -225,9 +232,8 @@ func parseHtlcRef(key []byte, data []byte) (*HtlcRef, error) {
 	}
 }
 
-func GetHtlcRefList(context db.DB, locktype []byte, unlocker types.Address) ([]*HtlcRef, error) {
-	// todo invalid locktype
-	iterator := context.NewIterator(common.JoinBytes(locktype, unlocker.Bytes()))
+func GetHtlcRefList(context db.DB, locktype uint8, unlocker types.Address) ([]*HtlcRef, error) {
+	iterator := context.NewIterator(common.JoinBytes([]byte{locktype}, unlocker.Bytes()))
 	defer iterator.Release()
 	list := make([]*HtlcRef, 0)
 	for {

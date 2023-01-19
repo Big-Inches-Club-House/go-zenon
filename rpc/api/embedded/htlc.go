@@ -61,7 +61,7 @@ type HtlcInfoList struct {
 	List  []*definition.HtlcInfo `json:"list"`
 }
 
-func (a *HtlcApi) GetHtlcInfosByLockTypeAddress(locktype []byte, address types.Address, pageIndex, pageSize uint32) (*HtlcInfoList, error) {
+func (a *HtlcApi) getHtlcInfosByLockTypeAddress(locktype uint8, address types.Address, pageIndex, pageSize uint32) (*HtlcInfoList, error) {
 	if pageSize > api.RpcMaxPageSize {
 		return nil, api.ErrPageSizeParamTooBig
 	}
@@ -96,9 +96,9 @@ func (a *HtlcApi) GetHtlcInfosByLockTypeAddress(locktype []byte, address types.A
 }
 
 func (a *HtlcApi) GetHtlcInfosByTimeLockedAddress(address types.Address, pageIndex, pageSize uint32) (*HtlcInfoList, error) {
-	return a.GetHtlcInfosByLockTypeAddress([]byte{2}, address, pageIndex, pageSize)
+	return a.getHtlcInfosByLockTypeAddress(definition.LockTypeTime, address, pageIndex, pageSize)
 }
 
 func (a *HtlcApi) GetHtlcInfosByHashLockedAddress(address types.Address, pageIndex, pageSize uint32) (*HtlcInfoList, error) {
-	return a.GetHtlcInfosByLockTypeAddress([]byte{3}, address, pageIndex, pageSize)
+	return a.getHtlcInfosByLockTypeAddress(definition.LockTypeHash, address, pageIndex, pageSize)
 }

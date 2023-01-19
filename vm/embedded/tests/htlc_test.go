@@ -17,23 +17,21 @@ import (
 )
 
 const (
-
-	// why not just make this pubic in mock genesis?
 	genesisTimestamp = 1000000000
 )
 
+var (
+	// iykyk
+	preimageZ = types.HexToHashPanic("b7845adcd41eec4e4fa1cc75a868014811b575942c6e4a72551bc01f63705634").Bytes()
+	preimageQ = types.HexToHashPanic("d70b59367334f9c6d4771059093ec11cb505d7b2b0e233cc8bde00fe7aec3cee").Bytes()
+
+	preimageZlong = []byte("a718ee3fe739bd6435f0bd7bb4ee90e1deff2343372d92a04592c26a39b570a8")
+)
+
 // TODO test logs
-// TODO don't test against strings, construct expected objects, marshal and compare
 // TODO hide hashes
-// TODO test fixtures, and helper methods
+// TODO get expectedId dynamically everywhere
 
-// TODO refactor tests
-// most tedious testing would be ensuring invalid attempts don't alter validity
-// many different permutations...
-// would be overkill; I am confident without it
-// can we check that DB state is unchanged?
-
-// TODO generic activate spork helper function
 func activateHtlc(z mock.MockZenon) {
 	sporkAPI := embedded.NewSporkApi(z)
 	z.InsertSendBlock(&nom.AccountBlock{
@@ -62,6 +60,19 @@ func activateHtlc(z mock.MockZenon) {
 	z.InsertMomentumsTo(20)
 }
 
+func checkZeroHtlcsFor(t *testing.T, address types.Address, api *embedded.HtlcApi) {
+	common.Json(api.GetHtlcInfosByTimeLockedAddress(address, 0, 10)).Equals(t, `
+{
+	"count": 0,
+	"list": []
+}`)
+	common.Json(api.GetHtlcInfosByHashLockedAddress(address, 0, 10)).Equals(t, `
+{
+	"count": 0,
+	"list": []
+}`)
+}
+
 // TODO test create htlc token amount must be positive, how?? it is in the ValidateSendBlock
 // have tested it and gotten the correct error but can't do it through the expector
 // move check from ValidateSendBlock to ReceiveBlock?
@@ -70,8 +81,7 @@ func activateHtlc(z mock.MockZenon) {
 //	defer z.StopPanic()
 // 	activateHtlc(z)
 //
-//	preimage := []byte("pump it zennie chan")
-//	lock := crypto.HashSHA256(preimage)
+//	lock := crypto.HashSHA256(preimageZ)
 //
 //	// user 1 creates an htlc for user 2
 //	defer z.CallContract(&nom.AccountBlock{
@@ -97,30 +107,10 @@ func TestHtlc_unlock(t *testing.T) {
 	defer z.StopPanic()
 	activateHtlc(z)
 
-	// TODO make this a helper function
-	common.Json(htlcApi.GetHtlcInfosByTimeLockedAddress(g.User1.Address, 0, 10)).Equals(t, `
-{
-	"count": 0,
-	"list": []
-}`)
-	common.Json(htlcApi.GetHtlcInfosByHashLockedAddress(g.User1.Address, 0, 10)).Equals(t, `
-{
-	"count": 0,
-	"list": []
-}`)
+	checkZeroHtlcsFor(t, g.User1.Address, htlcApi)
+	checkZeroHtlcsFor(t, g.User2.Address, htlcApi)
 
-	common.Json(htlcApi.GetHtlcInfosByTimeLockedAddress(g.User2.Address, 0, 10)).Equals(t, `
-{
-	"count": 0,
-	"list": []
-}`)
-	common.Json(htlcApi.GetHtlcInfosByHashLockedAddress(g.User2.Address, 0, 10)).Equals(t, `
-{
-	"count": 0,
-	"list": []
-}`)
-
-	preimage := []byte("pump it zennie chan")
+	preimage := preimageZ
 	lock := crypto.Hash(preimage)
 
 	// user 1 creates an htlc for user 2
@@ -149,11 +139,11 @@ func TestHtlc_unlock(t *testing.T) {
 	z.ExpectBalance(types.HtlcContract, types.ZnnTokenStandard, 10*g.Zexp)
 	z.ExpectBalance(types.HtlcContract, types.QsrTokenStandard, 0*g.Zexp)
 
-	expectedId := types.HexToHashPanic("582052b563f7ed9a01c56248e58c938ac8826d935d88b170fef83b946f6a5bcc")
+	expectedId := types.HexToHashPanic("279cadb7e128de79af66d1f4abfe819350f7245e5d7036e16165f2e7ecf4bde5")
 
 	common.Json(htlcApi.GetHtlcInfoById(expectedId)).Equals(t, `
 {
-	"id": "582052b563f7ed9a01c56248e58c938ac8826d935d88b170fef83b946f6a5bcc",
+	"id": "279cadb7e128de79af66d1f4abfe819350f7245e5d7036e16165f2e7ecf4bde5",
 	"timeLocked": "z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz",
 	"hashLocked": "z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx",
 	"tokenStandard": "zts1znnxxxxxxxxxxxxx9z4ulx",
@@ -161,7 +151,7 @@ func TestHtlc_unlock(t *testing.T) {
 	"expirationTime": 1000000300,
 	"hashType": 0,
 	"keyMaxSize": 32,
-	"hashLock": "t4Ra3NQe7E5Pocx1qGgBSBG1dZQsbkpyVRvAH2NwVjQ="
+	"hashLock": "Fd4QDoNykDbHp30bYIghQmK4OOcnATsGilLcpt7kV8s="
 }
 `)
 
@@ -170,7 +160,7 @@ func TestHtlc_unlock(t *testing.T) {
 	"count": 1,
 	"list": [
 		{
-			"id": "582052b563f7ed9a01c56248e58c938ac8826d935d88b170fef83b946f6a5bcc",
+			"id": "279cadb7e128de79af66d1f4abfe819350f7245e5d7036e16165f2e7ecf4bde5",
 			"timeLocked": "z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz",
 			"hashLocked": "z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx",
 			"tokenStandard": "zts1znnxxxxxxxxxxxxx9z4ulx",
@@ -178,7 +168,7 @@ func TestHtlc_unlock(t *testing.T) {
 			"expirationTime": 1000000300,
 			"hashType": 0,
 			"keyMaxSize": 32,
-			"hashLock": "t4Ra3NQe7E5Pocx1qGgBSBG1dZQsbkpyVRvAH2NwVjQ="
+			"hashLock": "Fd4QDoNykDbHp30bYIghQmK4OOcnATsGilLcpt7kV8s="
 		}
 	]
 }
@@ -198,7 +188,7 @@ func TestHtlc_unlock(t *testing.T) {
 	"count": 1,
 	"list": [
 		{
-			"id": "582052b563f7ed9a01c56248e58c938ac8826d935d88b170fef83b946f6a5bcc",
+			"id": "279cadb7e128de79af66d1f4abfe819350f7245e5d7036e16165f2e7ecf4bde5",
 			"timeLocked": "z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz",
 			"hashLocked": "z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx",
 			"tokenStandard": "zts1znnxxxxxxxxxxxxx9z4ulx",
@@ -206,7 +196,7 @@ func TestHtlc_unlock(t *testing.T) {
 			"expirationTime": 1000000300,
 			"hashType": 0,
 			"keyMaxSize": 32,
-			"hashLock": "t4Ra3NQe7E5Pocx1qGgBSBG1dZQsbkpyVRvAH2NwVjQ="
+			"hashLock": "Fd4QDoNykDbHp30bYIghQmK4OOcnATsGilLcpt7kV8s="
 		}
 	]
 }
@@ -225,7 +215,7 @@ func TestHtlc_unlock(t *testing.T) {
 	z.InsertNewMomentum()
 
 	// user 2 tries to unlock with wrong preimage
-	wrong_preimage := []byte("pump it quasar chan")
+	wrong_preimage := preimageQ
 	defer z.CallContract(&nom.AccountBlock{
 		Address:   g.User2.Address,
 		ToAddress: types.HtlcContract,
@@ -265,27 +255,9 @@ func TestHtlc_unlock(t *testing.T) {
 	z.ExpectBalance(types.HtlcContract, types.ZnnTokenStandard, 0*g.Zexp)
 	z.ExpectBalance(types.HtlcContract, types.QsrTokenStandard, 0*g.Zexp)
 
-	common.Json(htlcApi.GetHtlcInfosByTimeLockedAddress(g.User1.Address, 0, 10)).Equals(t, `
-{
-	"count": 0,
-	"list": []
-}`)
-	common.Json(htlcApi.GetHtlcInfosByHashLockedAddress(g.User1.Address, 0, 10)).Equals(t, `
-{
-	"count": 0,
-	"list": []
-}`)
+	checkZeroHtlcsFor(t, g.User1.Address, htlcApi)
+	checkZeroHtlcsFor(t, g.User2.Address, htlcApi)
 
-	common.Json(htlcApi.GetHtlcInfosByTimeLockedAddress(g.User2.Address, 0, 10)).Equals(t, `
-{
-	"count": 0,
-	"list": []
-}`)
-	common.Json(htlcApi.GetHtlcInfosByHashLockedAddress(g.User2.Address, 0, 10)).Equals(t, `
-{
-	"count": 0,
-	"list": []
-}`)
 }
 
 func TestHtlc_reclaim(t *testing.T) {
@@ -294,7 +266,7 @@ func TestHtlc_reclaim(t *testing.T) {
 	defer z.StopPanic()
 	activateHtlc(z)
 
-	preimage := []byte("pump it zennie chan")
+	preimage := preimageZ
 	lock := crypto.Hash(preimage)
 
 	defer z.CallContract(&nom.AccountBlock{
@@ -324,11 +296,11 @@ func TestHtlc_reclaim(t *testing.T) {
 
 	// TODO verify hashlock is correct
 
-	expectedId := types.HexToHashPanic("bfe77dadfce1d2a456a7338c30f6890bb22d4f6f217448459312ef0b23f45554")
+	expectedId := types.HexToHashPanic("dbc7d894a9acd06ac2017301c1b8c5ac017327095d0af5062cb902b8077cbdc1")
 
 	common.Json(htlcApi.GetHtlcInfoById(expectedId)).Equals(t, `
 {
-	"id": "bfe77dadfce1d2a456a7338c30f6890bb22d4f6f217448459312ef0b23f45554",
+	"id": "dbc7d894a9acd06ac2017301c1b8c5ac017327095d0af5062cb902b8077cbdc1",
 	"timeLocked": "z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz",
 	"hashLocked": "z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx",
 	"tokenStandard": "zts1qsrxxxxxxxxxxxxxmrhjll",
@@ -336,7 +308,7 @@ func TestHtlc_reclaim(t *testing.T) {
 	"expirationTime": 1000000300,
 	"hashType": 0,
 	"keyMaxSize": 32,
-	"hashLock": "t4Ra3NQe7E5Pocx1qGgBSBG1dZQsbkpyVRvAH2NwVjQ="
+	"hashLock": "Fd4QDoNykDbHp30bYIghQmK4OOcnATsGilLcpt7kV8s="
 }
 `)
 
@@ -345,7 +317,7 @@ func TestHtlc_reclaim(t *testing.T) {
 	"count": 1,
 	"list": [
 		{
-			"id": "bfe77dadfce1d2a456a7338c30f6890bb22d4f6f217448459312ef0b23f45554",
+			"id": "dbc7d894a9acd06ac2017301c1b8c5ac017327095d0af5062cb902b8077cbdc1",
 			"timeLocked": "z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz",
 			"hashLocked": "z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx",
 			"tokenStandard": "zts1qsrxxxxxxxxxxxxxmrhjll",
@@ -353,7 +325,7 @@ func TestHtlc_reclaim(t *testing.T) {
 			"expirationTime": 1000000300,
 			"hashType": 0,
 			"keyMaxSize": 32,
-			"hashLock": "t4Ra3NQe7E5Pocx1qGgBSBG1dZQsbkpyVRvAH2NwVjQ="
+			"hashLock": "Fd4QDoNykDbHp30bYIghQmK4OOcnATsGilLcpt7kV8s="
 		}
 	]
 }
@@ -374,7 +346,7 @@ func TestHtlc_reclaim(t *testing.T) {
 	"count": 1,
 	"list": [
 		{
-			"id": "bfe77dadfce1d2a456a7338c30f6890bb22d4f6f217448459312ef0b23f45554",
+			"id": "dbc7d894a9acd06ac2017301c1b8c5ac017327095d0af5062cb902b8077cbdc1",
 			"timeLocked": "z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz",
 			"hashLocked": "z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx",
 			"tokenStandard": "zts1qsrxxxxxxxxxxxxxmrhjll",
@@ -382,7 +354,7 @@ func TestHtlc_reclaim(t *testing.T) {
 			"expirationTime": 1000000300,
 			"hashType": 0,
 			"keyMaxSize": 32,
-			"hashLock": "t4Ra3NQe7E5Pocx1qGgBSBG1dZQsbkpyVRvAH2NwVjQ="
+			"hashLock": "Fd4QDoNykDbHp30bYIghQmK4OOcnATsGilLcpt7kV8s="
 		}
 	]
 }
@@ -427,27 +399,8 @@ func TestHtlc_reclaim(t *testing.T) {
 	z.ExpectBalance(types.HtlcContract, types.ZnnTokenStandard, 0*g.Zexp)
 	z.ExpectBalance(types.HtlcContract, types.QsrTokenStandard, 0*g.Zexp)
 
-	common.Json(htlcApi.GetHtlcInfosByTimeLockedAddress(g.User1.Address, 0, 10)).Equals(t, `
-{
-	"count": 0,
-	"list": []
-}`)
-	common.Json(htlcApi.GetHtlcInfosByHashLockedAddress(g.User1.Address, 0, 10)).Equals(t, `
-{
-	"count": 0,
-	"list": []
-}`)
-
-	common.Json(htlcApi.GetHtlcInfosByTimeLockedAddress(g.User2.Address, 0, 10)).Equals(t, `
-{
-	"count": 0,
-	"list": []
-}`)
-	common.Json(htlcApi.GetHtlcInfosByHashLockedAddress(g.User2.Address, 0, 10)).Equals(t, `
-{
-	"count": 0,
-	"list": []
-}`)
+	checkZeroHtlcsFor(t, g.User1.Address, htlcApi)
+	checkZeroHtlcsFor(t, g.User2.Address, htlcApi)
 }
 
 func TestHtlc_unlock_access(t *testing.T) {
@@ -455,7 +408,7 @@ func TestHtlc_unlock_access(t *testing.T) {
 	defer z.StopPanic()
 	activateHtlc(z)
 
-	preimage := []byte("pump it zennie chan")
+	preimage := preimageZ
 	lock := crypto.Hash(preimage)
 
 	// user 1 creates an htlc for user 2
@@ -475,7 +428,7 @@ func TestHtlc_unlock_access(t *testing.T) {
 	z.InsertNewMomentum()
 	z.InsertNewMomentum()
 
-	expectedId := types.HexToHashPanic("582052b563f7ed9a01c56248e58c938ac8826d935d88b170fef83b946f6a5bcc")
+	expectedId := types.HexToHashPanic("279cadb7e128de79af66d1f4abfe819350f7245e5d7036e16165f2e7ecf4bde5")
 
 	// user 1 tries to unlock with correct preimage
 	defer z.CallContract(&nom.AccountBlock{
@@ -521,10 +474,11 @@ func TestHtlc_unlock_access(t *testing.T) {
 // TODO everyone tries to claim unexpired ?
 func TestHtlc_reclaim_access(t *testing.T) {
 	z := mock.NewMockZenon(t)
+	htlcApi := embedded.NewHtlcApi(z)
 	defer z.StopPanic()
 	activateHtlc(z)
 
-	preimage := []byte("pump it zennie chan")
+	preimage := preimageZ
 	lock := crypto.Hash(preimage)
 
 	defer z.CallContract(&nom.AccountBlock{
@@ -543,7 +497,8 @@ func TestHtlc_reclaim_access(t *testing.T) {
 	z.InsertNewMomentum()
 	z.InsertMomentumsTo(40)
 
-	expectedId := types.HexToHashPanic("bfe77dadfce1d2a456a7338c30f6890bb22d4f6f217448459312ef0b23f45554")
+	//checkZeroHtlcsFor(t, g.User1.Address, htlcApi)
+	expectedId := types.HexToHashPanic("dbc7d894a9acd06ac2017301c1b8c5ac017327095d0af5062cb902b8077cbdc1")
 
 	// user 2 tries to reclaim expired
 	defer z.CallContract(&nom.AccountBlock{
@@ -581,6 +536,10 @@ func TestHtlc_reclaim_access(t *testing.T) {
 	}).Error(t, nil)
 	z.InsertNewMomentum()
 
+	checkZeroHtlcsFor(t, g.User1.Address, htlcApi)
+	checkZeroHtlcsFor(t, g.User2.Address, htlcApi)
+	checkZeroHtlcsFor(t, g.User3.Address, htlcApi)
+
 }
 
 func TestHtlc_nonexistent(t *testing.T) {
@@ -589,8 +548,8 @@ func TestHtlc_nonexistent(t *testing.T) {
 	defer z.StopPanic()
 	activateHtlc(z)
 
-	preimage := []byte("pump it zennie chan")
-	nonexistentId := types.HexToHashPanic("582052b563f7ed9a01c56248e58c938ac8826d935d88b170fef83b946f6a5bcc")
+	preimage := preimageZ
+	nonexistentId := types.HexToHashPanic("279cadb7e128de79af66d1f4abfe819350f7245e5d7036e16165f2e7ecf4bde5")
 
 	// get htlcinfo rpc nonexistent
 	common.Json(htlcApi.GetHtlcInfoById(nonexistentId)).Error(t, constants.ErrDataNonExistent)
@@ -627,7 +586,7 @@ func TestHtlc_nonexistent_after_unlock(t *testing.T) {
 	defer z.StopPanic()
 	activateHtlc(z)
 
-	preimage := []byte("pump it zennie chan")
+	preimage := preimageZ
 	lock := crypto.Hash(preimage)
 
 	// user 1 creates an htlc for user 2
@@ -647,7 +606,7 @@ func TestHtlc_nonexistent_after_unlock(t *testing.T) {
 	z.InsertNewMomentum()
 	z.InsertNewMomentum()
 
-	htlcId := types.HexToHashPanic("582052b563f7ed9a01c56248e58c938ac8826d935d88b170fef83b946f6a5bcc")
+	htlcId := types.HexToHashPanic("279cadb7e128de79af66d1f4abfe819350f7245e5d7036e16165f2e7ecf4bde5")
 
 	// user2 unlocks with correct preimage
 	defer z.CallContract(&nom.AccountBlock{
@@ -700,7 +659,7 @@ func TestHtlc_nonexistent_after_reclaim(t *testing.T) {
 	defer z.StopPanic()
 	activateHtlc(z)
 
-	preimage := []byte("pump it zennie chan")
+	preimage := preimageZ
 	lock := crypto.Hash(preimage)
 
 	// user 1 creates an htlc for user 2
@@ -720,7 +679,7 @@ func TestHtlc_nonexistent_after_reclaim(t *testing.T) {
 	z.InsertNewMomentum()
 	z.InsertMomentumsTo(40)
 
-	htlcId := types.HexToHashPanic("582052b563f7ed9a01c56248e58c938ac8826d935d88b170fef83b946f6a5bcc")
+	htlcId := types.HexToHashPanic("279cadb7e128de79af66d1f4abfe819350f7245e5d7036e16165f2e7ecf4bde5")
 
 	// user1 reclaims expired
 	defer z.CallContract(&nom.AccountBlock{
@@ -771,7 +730,7 @@ func TestHtlc_create_expired(t *testing.T) {
 	defer z.StopPanic()
 	activateHtlc(z)
 
-	preimage := []byte("pump it zennie chan")
+	preimage := preimageZ
 	lock := crypto.Hash(preimage)
 
 	// user tries to create expired htlc
@@ -798,7 +757,7 @@ func TestHtlc_unlock_long_preimage(t *testing.T) {
 	defer z.StopPanic()
 	activateHtlc(z)
 
-	preimage := []byte("pump it zennie chan pump it zennie chan pump it zennie chan pump it zennie chan")
+	preimage := preimageZlong
 	lock := crypto.Hash(preimage)
 
 	// user1 creates htlc for user 2
@@ -818,11 +777,10 @@ func TestHtlc_unlock_long_preimage(t *testing.T) {
 	z.InsertNewMomentum()
 	z.InsertNewMomentum()
 
-	//htlcApi := embedded.NewHtlcApi(z)
-	//common.Json(htlcApi.GetHtlcInfosByTimeLockedAddress(g.User1.Address, 0, 10)).Equals(t, `[]`)
-	//TODO get expectedId dynamically everywhere
+	// htlcApi := embedded.NewHtlcApi(z)
+	// common.Json(htlcApi.GetHtlcInfosByTimeLockedAddress(g.User1.Address, 0, 10)).Equals(t, `[]`)
 
-	expectedId := types.HexToHashPanic("00f92900a50db2b9c120b7d5934ad2fa9e30417fb120000970916a5b8c7dcbdb")
+	expectedId := types.HexToHashPanic("5eab16285e906726cfc11419f29146c6ee765b8b2c044c2b60b33ddff91925ed")
 
 	// user2 tries to unlock with oversized preimage
 	defer z.CallContract(&nom.AccountBlock{
@@ -852,7 +810,7 @@ func TestHtlc_unlockSHA256(t *testing.T) {
 	defer z.StopPanic()
 	activateHtlc(z)
 
-	preimage := []byte("pump it zennie chan")
+	preimage := preimageZ
 	lock := crypto.HashSHA256(preimage)
 
 	// user 1 creates an htlc for user 2 using sha256 locktype
@@ -881,14 +839,12 @@ func TestHtlc_unlockSHA256(t *testing.T) {
 	z.ExpectBalance(types.HtlcContract, types.ZnnTokenStandard, 10*g.Zexp)
 	z.ExpectBalance(types.HtlcContract, types.QsrTokenStandard, 0*g.Zexp)
 
-	//common.Json(htlcApi.GetHtlcInfosByTimeLockedAddress(g.User1.Address, 0, 10)).Equals(t, `[]`)
-
-	expectedId := types.HexToHashPanic("111bc3d0ecf5b1e00f0f464a990969c7ea99cf019cb99b02552472310e3a1884")
+	expectedId := types.HexToHashPanic("04b4c0870fc824a8a68917b862a4cbf19c66a2b8091bcfbf31d4459aff757dd7")
 
 	//common.Json(htlcApi.GetHtlcInfosByHashLockedAddress(g.User2.Address, 0, 10)).Equals(t, `[]`)
 	common.Json(htlcApi.GetHtlcInfoById(expectedId)).Equals(t, `
 {
-	"id": "111bc3d0ecf5b1e00f0f464a990969c7ea99cf019cb99b02552472310e3a1884",
+	"id": "04b4c0870fc824a8a68917b862a4cbf19c66a2b8091bcfbf31d4459aff757dd7",
 	"timeLocked": "z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz",
 	"hashLocked": "z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx",
 	"tokenStandard": "zts1znnxxxxxxxxxxxxx9z4ulx",
@@ -896,12 +852,12 @@ func TestHtlc_unlockSHA256(t *testing.T) {
 	"expirationTime": 1000000300,
 	"hashType": 1,
 	"keyMaxSize": 32,
-	"hashLock": "0M84vVCA5ZZORK3DgSj2Q7kV9oMGqKDsPDgELO5il1o="
+	"hashLock": "zYaMcaHJ1yxUmbaLsG7tN0J34zNthDoPEZFEYcNd0DY="
 }
 `)
 
 	// user 2 tries to unlock with wrong preimage
-	wrong_preimage := []byte("pump it quasar chan")
+	wrong_preimage := preimageQ
 	defer z.CallContract(&nom.AccountBlock{
 		Address:   g.User2.Address,
 		ToAddress: types.HtlcContract,
@@ -941,27 +897,8 @@ func TestHtlc_unlockSHA256(t *testing.T) {
 	z.ExpectBalance(types.HtlcContract, types.ZnnTokenStandard, 0*g.Zexp)
 	z.ExpectBalance(types.HtlcContract, types.QsrTokenStandard, 0*g.Zexp)
 
-	common.Json(htlcApi.GetHtlcInfosByTimeLockedAddress(g.User1.Address, 0, 10)).Equals(t, `
-{
-	"count": 0,
-	"list": []
-}`)
-	common.Json(htlcApi.GetHtlcInfosByHashLockedAddress(g.User1.Address, 0, 10)).Equals(t, `
-{
-	"count": 0,
-	"list": []
-}`)
-
-	common.Json(htlcApi.GetHtlcInfosByTimeLockedAddress(g.User2.Address, 0, 10)).Equals(t, `
-{
-	"count": 0,
-	"list": []
-}`)
-	common.Json(htlcApi.GetHtlcInfosByHashLockedAddress(g.User2.Address, 0, 10)).Equals(t, `
-{
-	"count": 0,
-	"list": []
-}`)
+	checkZeroHtlcsFor(t, g.User1.Address, htlcApi)
+	checkZeroHtlcsFor(t, g.User2.Address, htlcApi)
 }
 
 func TestHtlc_hashType(t *testing.T) {
@@ -970,7 +907,7 @@ func TestHtlc_hashType(t *testing.T) {
 	defer z.StopPanic()
 	activateHtlc(z)
 
-	preimage := []byte("pump it zennie chan")
+	preimage := preimageZ
 	sha3lock := crypto.Hash(preimage)
 	sha256lock := crypto.HashSHA256(preimage)
 
@@ -1013,7 +950,7 @@ func TestHtlc_hashType(t *testing.T) {
 	"count": 2,
 	"list": [
 		{
-			"id": "01f63fdcf903372256329648e2d722976f2f87f2e3ab16bb9a443f3eeb82e226",
+			"id": "95e03b6220a552d4b178a6b97d483ef79d72f63975ffbd248fd55420ecfda555",
 			"timeLocked": "z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz",
 			"hashLocked": "z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx",
 			"tokenStandard": "zts1znnxxxxxxxxxxxxx9z4ulx",
@@ -1021,10 +958,10 @@ func TestHtlc_hashType(t *testing.T) {
 			"expirationTime": 1000000300,
 			"hashType": 1,
 			"keyMaxSize": 32,
-			"hashLock": "t4Ra3NQe7E5Pocx1qGgBSBG1dZQsbkpyVRvAH2NwVjQ="
+			"hashLock": "Fd4QDoNykDbHp30bYIghQmK4OOcnATsGilLcpt7kV8s="
 		},
 		{
-			"id": "e57011f283da5485d56287e520f42d4b67da5fa4276cbdda7c7139119419beeb",
+			"id": "c9fb086e859974b9fa8a0b9ebd7bffe671b8cff3de8cc9787fab73b0cd41cdaf",
 			"timeLocked": "z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz",
 			"hashLocked": "z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx",
 			"tokenStandard": "zts1znnxxxxxxxxxxxxx9z4ulx",
@@ -1032,14 +969,14 @@ func TestHtlc_hashType(t *testing.T) {
 			"expirationTime": 1000000300,
 			"hashType": 0,
 			"keyMaxSize": 32,
-			"hashLock": "0M84vVCA5ZZORK3DgSj2Q7kV9oMGqKDsPDgELO5il1o="
+			"hashLock": "zYaMcaHJ1yxUmbaLsG7tN0J34zNthDoPEZFEYcNd0DY="
 		}
 	]
 }
 `)
 
-	expectedId1 := types.HexToHashPanic("01f63fdcf903372256329648e2d722976f2f87f2e3ab16bb9a443f3eeb82e226")
-	expectedId2 := types.HexToHashPanic("e57011f283da5485d56287e520f42d4b67da5fa4276cbdda7c7139119419beeb")
+	expectedId1 := types.HexToHashPanic("95e03b6220a552d4b178a6b97d483ef79d72f63975ffbd248fd55420ecfda555")
+	expectedId2 := types.HexToHashPanic("c9fb086e859974b9fa8a0b9ebd7bffe671b8cff3de8cc9787fab73b0cd41cdaf")
 
 	// user 2 cannot unlock sha3 lock
 	defer z.CallContract(&nom.AccountBlock{
