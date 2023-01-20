@@ -7,9 +7,8 @@ import (
 )
 
 const (
-	Decimals   = 100000000
-	SecsInDay  = 24 * 60 * 60
-	SecsInHour = 60 * 60
+	Decimals  = 100000000
+	SecsInDay = 24 * 60 * 60
 )
 
 var (

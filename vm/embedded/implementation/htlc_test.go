@@ -1,7 +1,7 @@
 package implementation
 
 import (
-	"encoding/base64"
+	"encoding/hex"
 	"testing"
 
 	g "github.com/zenon-network/go-zenon/chain/genesis/mock"
@@ -11,9 +11,7 @@ import (
 )
 
 var (
-	// i completely forget what the preimage for this is lol, some meme probably
-	// encoding/json marshals []byte as base64 following RFC 4648
-	hashlock, _ = base64.StdEncoding.DecodeString("pxjuP+c5vWQ18L17tO6Q4d7/I0M3LZKgRZLCajm1cKg=")
+	hashlock, _ = hex.DecodeString("b7845adcd41eec4e4fa1cc75a868014811b575942c6e4a72551bc01f63705634")
 	defaultHtlc = definition.CreateHtlcParam{
 		HashLocked:     g.User1.Address,
 		ExpirationTime: 1000000000,

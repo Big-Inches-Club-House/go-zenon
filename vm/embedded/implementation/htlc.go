@@ -2,6 +2,7 @@ package implementation
 
 import (
 	"bytes"
+	"encoding/hex"
 
 	"github.com/zenon-network/go-zenon/chain/nom"
 	"github.com/zenon-network/go-zenon/common"
@@ -49,11 +50,6 @@ func (p *CreateHtlcMethod) ValidateSendBlock(block *nom.AccountBlock) error {
 		return err
 	}
 
-	// can't create empty htlcs
-	if block.Amount.Sign() == 0 {
-		return constants.ErrInvalidTokenOrAmount
-	}
-
 	block.Data, err = definition.ABIHtlc.PackMethod(p.MethodName,
 		param.HashLocked,
 		param.ExpirationTime,
@@ -65,7 +61,14 @@ func (p *CreateHtlcMethod) ValidateSendBlock(block *nom.AccountBlock) error {
 }
 func (p *CreateHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, sendBlock *nom.AccountBlock) ([]*nom.AccountBlock, error) {
 	if err := p.ValidateSendBlock(sendBlock); err != nil {
+		htlcLog.Debug("invalid create - syntactic validation failed", "address", sendBlock.Address, "reason", err)
 		return nil, err
+	}
+
+	// can't create empty htlcs
+	if sendBlock.Amount.Sign() == 0 {
+		htlcLog.Debug("invalid create - cannot create zero amount", "address", sendBlock.Address)
+		return nil, constants.ErrInvalidTokenOrAmount
 	}
 
 	param := new(definition.CreateHtlcParam)
@@ -77,6 +80,7 @@ func (p *CreateHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, sen
 
 	// can't create htlc that is already expired
 	if param.ExpirationTime <= momentum.Timestamp.Unix() {
+		htlcLog.Debug("invalid create - cannot create already expired", "address", sendBlock.Address, "time", momentum.Timestamp.Unix(), "expiration-time", param.ExpirationTime)
 		return nil, constants.ErrInvalidExpirationTime
 	}
 
@@ -107,7 +111,7 @@ func (p *CreateHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, sen
 	common.DealWithErr(timelock.Save(context.Storage()))
 	common.DealWithErr(hashlock.Save(context.Storage()))
 
-	htlcLog.Debug("created new entry", "htlcInfo", htlcInfo)
+	htlcLog.Debug("created", "htlcInfo", htlcInfo)
 	return nil, nil
 }
 
@@ -135,6 +139,7 @@ func (p *ReclaimHtlcMethod) ValidateSendBlock(block *nom.AccountBlock) error {
 }
 func (p *ReclaimHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, sendBlock *nom.AccountBlock) ([]*nom.AccountBlock, error) {
 	if err := p.ValidateSendBlock(sendBlock); err != nil {
+		htlcLog.Debug("invalid reclaim - syntactic validation failed", "address", sendBlock.Address, "reason", err)
 		return nil, err
 	}
 
@@ -147,17 +152,20 @@ func (p *ReclaimHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, se
 
 	htlcInfo, err := definition.GetHtlcInfo(context.Storage(), *id)
 	if err == constants.ErrDataNonExistent {
+		htlcLog.Debug("invalid reclaim - entry does not exist", "id", id, "address", sendBlock.Address)
 		return nil, err
 	}
 	common.DealWithErr(err)
 
 	// only timelocked can reclaim
 	if htlcInfo.TimeLocked != sendBlock.Address {
+		htlcLog.Debug("invalid reclaim - permission denied", "id", htlcInfo.Id, "address", sendBlock.Address)
 		return nil, constants.ErrPermissionDenied
 	}
 
 	// can only reclaim after the entry is expired
 	if htlcInfo.ExpirationTime > momentum.Timestamp.Unix() {
+		htlcLog.Debug("invalid reclaim - entry not expired", "id", htlcInfo.Id, "address", sendBlock.Address, "time", momentum.Timestamp.Unix(), "expiration-time", htlcInfo.ExpirationTime)
 		return nil, constants.ReclaimNotDue
 	}
 
@@ -176,7 +184,7 @@ func (p *ReclaimHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, se
 	common.DealWithErr(timelock.Delete(context.Storage()))
 	common.DealWithErr(hashlock.Delete(context.Storage()))
 
-	htlcLog.Debug("reclaimed htlc entry", "htlcInfo", htlcInfo)
+	htlcLog.Debug("reclaimed", "htlcInfo", htlcInfo)
 
 	return []*nom.AccountBlock{
 		{
@@ -214,6 +222,7 @@ func (p *UnlockHtlcMethod) ValidateSendBlock(block *nom.AccountBlock) error {
 }
 func (p *UnlockHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, sendBlock *nom.AccountBlock) ([]*nom.AccountBlock, error) {
 	if err := p.ValidateSendBlock(sendBlock); err != nil {
+		htlcLog.Debug("invalid unlock - syntactic validation failed", "address", sendBlock.Address, "reason", err)
 		return nil, err
 	}
 
@@ -226,21 +235,25 @@ func (p *UnlockHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, sen
 
 	htlcInfo, err := definition.GetHtlcInfo(context.Storage(), param.Id)
 	if err == constants.ErrDataNonExistent {
+		htlcLog.Debug("invalid unlock - entry does not exist", "id", param.Id, "address", sendBlock.Address)
 		return nil, err
 	}
 	common.DealWithErr(err)
 
 	// only hashlocked can unlock
 	if sendBlock.Address != htlcInfo.HashLocked {
+		htlcLog.Debug("invalid unlock - permission denied", "id", htlcInfo.Id, "address", sendBlock.Address)
 		return nil, constants.ErrPermissionDenied
 	}
 
 	// can only unlock before expiration time
 	if momentum.Timestamp.Unix() > htlcInfo.ExpirationTime {
+		htlcLog.Debug("invalid unlock - entry is expired", "id", htlcInfo.Id, "address", sendBlock.Address, "time", momentum.Timestamp.Unix(), "expiration-time", htlcInfo.ExpirationTime)
 		return nil, constants.ErrExpired
 	}
 
 	if len(param.Preimage) > int(htlcInfo.KeyMaxSize) {
+		htlcLog.Debug("invalid unlock - preimage size greater than entry KeyMaxSize", "id", htlcInfo.Id, "address", sendBlock.Address, "preimage-size", len(param.Preimage), "max-size", htlcInfo.KeyMaxSize)
 		return nil, constants.ErrInvalidPreimage
 	}
 
@@ -254,6 +267,7 @@ func (p *UnlockHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, sen
 	}
 
 	if !bytes.Equal(hashedPreimage, htlcInfo.HashLock) {
+		htlcLog.Debug("invalid unlock - wrong preimage", "id", htlcInfo.Id, "address", sendBlock.Address, "preimage", hex.EncodeToString(param.Preimage))
 		return nil, constants.ErrInvalidPreimage
 	}
 
@@ -272,8 +286,7 @@ func (p *UnlockHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, sen
 	common.DealWithErr(timelock.Delete(context.Storage()))
 	common.DealWithErr(hashlock.Delete(context.Storage()))
 
-	// TODO include preimage?
-	htlcLog.Debug("unlocked htlc entry", "htlcInfo", htlcInfo)
+	htlcLog.Debug("unlocked", "htlcInfo", htlcInfo, "preimage", hex.EncodeToString(param.Preimage))
 
 	return []*nom.AccountBlock{
 		{

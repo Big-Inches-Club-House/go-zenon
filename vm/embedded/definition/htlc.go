@@ -177,10 +177,10 @@ type HtlcRef struct {
 }
 
 func (entry *HtlcRef) Save(context db.DB) error {
+	// All of the information for a ref is stored in its key
+	// We store a nonempty marker []byte{1} for its value
 	// DB.Delete() is just a Put with []byte{}, not a true delete
-	// this is why parseHtlcInfo has a len(data) > 0 check
-	// so for the refs, where we use the htlcInfo key as the ref, we need a nonempty value
-	// is there some sort of periodic cleanup of keys with empty values?
+	// So parseHtlcInfo has a len(data) > 0 check
 
 	return context.Put(getHtlcRefKey([]byte{entry.LockType}, entry.Unlocker, entry.Id), []byte{1})
 }
