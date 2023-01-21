@@ -244,13 +244,7 @@ func GetHtlcRefList(context db.DB, locktype uint8, unlocker types.Address) ([]*H
 			break
 		}
 
-		// probably should refactor this and parseHtlcRef
-		data, err := context.Get(iterator.Key())
-		if err != nil {
-			return nil, err
-		}
-
-		if ref, err := parseHtlcRef(iterator.Key(), data); err == nil {
+		if ref, err := parseHtlcRef(iterator.Key(), iterator.Value()); err == nil {
 			list = append(list, ref)
 		} else if err == constants.ErrDataNonExistent {
 			continue
