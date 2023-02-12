@@ -96,21 +96,7 @@ func (p *CreateHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, sen
 		HashLock:       param.HashLock,
 	}
 
-	timelock := definition.HtlcRef{
-		Id:       htlcInfo.Id,
-		LockType: definition.LockTypeTime,
-		Unlocker: sendBlock.Address,
-	}
-	hashlock := definition.HtlcRef{
-		Id:       htlcInfo.Id,
-		LockType: definition.LockTypeHash,
-		Unlocker: param.HashLocked,
-	}
-
 	common.DealWithErr(htlcInfo.Save(context.Storage()))
-	common.DealWithErr(timelock.Save(context.Storage()))
-	common.DealWithErr(hashlock.Save(context.Storage()))
-
 	htlcLog.Debug("created", "htlcInfo", htlcInfo)
 	return nil, nil
 }
@@ -169,21 +155,7 @@ func (p *ReclaimHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, se
 		return nil, constants.ReclaimNotDue
 	}
 
-	timelock := definition.HtlcRef{
-		Id:       htlcInfo.Id,
-		LockType: definition.LockTypeTime,
-		Unlocker: htlcInfo.TimeLocked,
-	}
-	hashlock := definition.HtlcRef{
-		Id:       htlcInfo.Id,
-		LockType: definition.LockTypeHash,
-		Unlocker: htlcInfo.HashLocked,
-	}
-
 	common.DealWithErr(htlcInfo.Delete(context.Storage()))
-	common.DealWithErr(timelock.Delete(context.Storage()))
-	common.DealWithErr(hashlock.Delete(context.Storage()))
-
 	htlcLog.Debug("reclaimed", "htlcInfo", htlcInfo)
 
 	return []*nom.AccountBlock{
@@ -271,21 +243,7 @@ func (p *UnlockHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, sen
 		return nil, constants.ErrInvalidPreimage
 	}
 
-	timelock := definition.HtlcRef{
-		Id:       htlcInfo.Id,
-		LockType: definition.LockTypeTime,
-		Unlocker: htlcInfo.TimeLocked,
-	}
-	hashlock := definition.HtlcRef{
-		Id:       htlcInfo.Id,
-		LockType: definition.LockTypeHash,
-		Unlocker: htlcInfo.HashLocked,
-	}
-
 	common.DealWithErr(htlcInfo.Delete(context.Storage()))
-	common.DealWithErr(timelock.Delete(context.Storage()))
-	common.DealWithErr(hashlock.Delete(context.Storage()))
-
 	htlcLog.Debug("unlocked", "htlcInfo", htlcInfo, "preimage", hex.EncodeToString(param.Preimage))
 
 	return []*nom.AccountBlock{

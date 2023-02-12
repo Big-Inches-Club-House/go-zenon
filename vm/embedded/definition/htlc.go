@@ -66,17 +66,10 @@ var HashTypeDigestSizes = map[uint8]uint8{
 	HashTypeSHA256: 32,
 }
 
-const (
-	LockTypeTime uint8 = iota + 2
-	LockTypeHash
-)
-
 var (
 	ABIHtlc = abi.JSONToABIContract(strings.NewReader(jsonHtlc))
 
 	htlcInfoKeyPrefix = []byte{1}
-	timeLockKeyPrefix = []byte{LockTypeTime}
-	hashLockKeyPrefix = []byte{LockTypeHash}
 )
 
 type CreateHtlcParam struct {
@@ -168,89 +161,4 @@ func GetHtlcInfo(context db.DB, id types.Hash) (*HtlcInfo, error) {
 	} else {
 		return parseHtlcInfo(key, data)
 	}
-}
-
-type HtlcRef struct {
-	LockType uint8
-	Unlocker types.Address
-	Id       types.Hash
-}
-
-func (entry *HtlcRef) Save(context db.DB) error {
-	// All of the information for a ref is stored in its key
-	// We store a nonempty marker []byte{1} for its value
-	// DB.Delete() is just a Put with []byte{}, not a true delete
-	// So parseHtlcInfo has a len(data) > 0 check
-
-	return context.Put(getHtlcRefKey([]byte{entry.LockType}, entry.Unlocker, entry.Id), []byte{1})
-}
-
-func (entry *HtlcRef) Delete(context db.DB) error {
-	return context.Delete(getHtlcRefKey([]byte{entry.LockType}, entry.Unlocker, entry.Id))
-}
-
-func getHtlcRefKey(lockTypePrefix []byte, unlocker types.Address, id types.Hash) []byte {
-	return common.JoinBytes(lockTypePrefix, unlocker.Bytes(), id.Bytes())
-}
-
-func isHtlcRefKey(key []byte) bool {
-	return key[0] == timeLockKeyPrefix[0] || key[0] == hashLockKeyPrefix[0]
-}
-
-func unmarshalHtlcRefKey(key []byte) (uint8, *types.Hash, *types.Address, error) {
-	if !isHtlcRefKey(key) {
-		return 0, nil, nil, errors.Errorf("invalid key! Not htlc ref key")
-	}
-	h := new(types.Hash)
-	err := h.SetBytes(key[1+types.AddressSize:])
-	if err != nil {
-		return 0, nil, nil, err
-	}
-
-	addr := new(types.Address)
-	err = addr.SetBytes(key[1 : 1+types.AddressSize])
-	if err != nil {
-		return 0, nil, nil, err
-	}
-
-	return key[0], h, addr, nil
-}
-
-func parseHtlcRef(key []byte, data []byte) (*HtlcRef, error) {
-	if len(data) > 0 {
-		ref := new(HtlcRef)
-		locktype, id, unlocker, err := unmarshalHtlcRefKey(key)
-		if err != nil {
-			return nil, err
-		}
-		ref.LockType = locktype
-		ref.Unlocker = *unlocker
-		ref.Id = *id
-		return ref, nil
-	} else {
-		return nil, constants.ErrDataNonExistent
-	}
-}
-
-func GetHtlcRefList(context db.DB, locktype uint8, unlocker types.Address) ([]*HtlcRef, error) {
-	iterator := context.NewIterator(common.JoinBytes([]byte{locktype}, unlocker.Bytes()))
-	defer iterator.Release()
-	list := make([]*HtlcRef, 0)
-	for {
-		if !iterator.Next() {
-			if iterator.Error() != nil {
-				return nil, iterator.Error()
-			}
-			break
-		}
-
-		if ref, err := parseHtlcRef(iterator.Key(), iterator.Value()); err == nil {
-			list = append(list, ref)
-		} else if err == constants.ErrDataNonExistent {
-			continue
-		} else {
-			return nil, err
-		}
-	}
-	return list, nil
 }

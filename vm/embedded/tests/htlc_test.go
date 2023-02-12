@@ -57,19 +57,6 @@ func activateHtlc(z mock.MockZenon) {
 	z.InsertMomentumsTo(20)
 }
 
-func checkZeroHtlcsFor(t *testing.T, address types.Address, api *embedded.HtlcApi) {
-	common.Json(api.GetHtlcInfosByTimeLockedAddress(address, 0, 10)).Equals(t, `
-{
-	"count": 0,
-	"list": []
-}`)
-	common.Json(api.GetHtlcInfosByHashLockedAddress(address, 0, 10)).Equals(t, `
-{
-	"count": 0,
-	"list": []
-}`)
-}
-
 func TestHtlc_zero(t *testing.T) {
 	z := mock.NewMockZenon(t)
 	defer z.StopPanic()
@@ -98,6 +85,15 @@ t=2001-09-09T01:50:00+0000 lvl=dbug msg="invalid create - cannot create zero amo
 	}).Error(t, constants.ErrInvalidTokenOrAmount)
 	z.InsertNewMomentum()
 	z.InsertNewMomentum()
+
+	z.ExpectBalance(g.User1.Address, types.ZnnTokenStandard, 12000*g.Zexp)
+	z.ExpectBalance(g.User1.Address, types.QsrTokenStandard, 120000*g.Zexp)
+
+	z.ExpectBalance(g.User2.Address, types.ZnnTokenStandard, 8000*g.Zexp)
+	z.ExpectBalance(g.User2.Address, types.QsrTokenStandard, 80000*g.Zexp)
+
+	z.ExpectBalance(types.HtlcContract, types.ZnnTokenStandard, 0*g.Zexp)
+	z.ExpectBalance(types.HtlcContract, types.QsrTokenStandard, 0*g.Zexp)
 }
 
 func TestHtlc_unlock(t *testing.T) {
@@ -111,12 +107,8 @@ t=2001-09-09T01:50:00+0000 lvl=dbug msg=created module=embedded contract=htlc ht
 t=2001-09-09T01:50:20+0000 lvl=dbug msg="invalid reclaim - entry not expired" module=embedded contract=htlc id=279cadb7e128de79af66d1f4abfe819350f7245e5d7036e16165f2e7ecf4bde5 address=z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz time=1000000220 expiration-time=1000000300
 t=2001-09-09T01:50:30+0000 lvl=dbug msg="invalid unlock - wrong preimage" module=embedded contract=htlc id=279cadb7e128de79af66d1f4abfe819350f7245e5d7036e16165f2e7ecf4bde5 address=z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx preimage=d70b59367334f9c6d4771059093ec11cb505d7b2b0e233cc8bde00fe7aec3cee
 t=2001-09-09T01:50:40+0000 lvl=dbug msg=unlocked module=embedded contract=htlc htlcInfo="&{Id:279cadb7e128de79af66d1f4abfe819350f7245e5d7036e16165f2e7ecf4bde5 TimeLocked:z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz HashLocked:z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx TokenStandard:zts1znnxxxxxxxxxxxxx9z4ulx Amount:+1000000000 ExpirationTime:1000000300 HashType:0 KeyMaxSize:32 HashLock:[21 222 16 14 131 114 144 54 199 167 125 27 96 136 33 66 98 184 56 231 39 1 59 6 138 82 220 166 222 228 87 203]}" preimage=b7845adcd41eec4e4fa1cc75a868014811b575942c6e4a72551bc01f63705634
-
 `)
 	activateHtlc(z)
-
-	checkZeroHtlcsFor(t, g.User1.Address, htlcApi)
-	checkZeroHtlcsFor(t, g.User2.Address, htlcApi)
 
 	preimage := preimageZ
 	lock := crypto.Hash(preimage)
@@ -160,53 +152,6 @@ t=2001-09-09T01:50:40+0000 lvl=dbug msg=unlocked module=embedded contract=htlc h
 	"hashType": 0,
 	"keyMaxSize": 32,
 	"hashLock": "Fd4QDoNykDbHp30bYIghQmK4OOcnATsGilLcpt7kV8s="
-}
-`)
-
-	common.Json(htlcApi.GetHtlcInfosByTimeLockedAddress(g.User1.Address, 0, 10)).Equals(t, `
-{
-	"count": 1,
-	"list": [
-		{
-			"id": "279cadb7e128de79af66d1f4abfe819350f7245e5d7036e16165f2e7ecf4bde5",
-			"timeLocked": "z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz",
-			"hashLocked": "z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx",
-			"tokenStandard": "zts1znnxxxxxxxxxxxxx9z4ulx",
-			"amount": 1000000000,
-			"expirationTime": 1000000300,
-			"hashType": 0,
-			"keyMaxSize": 32,
-			"hashLock": "Fd4QDoNykDbHp30bYIghQmK4OOcnATsGilLcpt7kV8s="
-		}
-	]
-}
-`)
-	common.Json(htlcApi.GetHtlcInfosByHashLockedAddress(g.User1.Address, 0, 10)).Equals(t, `
-{
-	"count": 0,
-	"list": []
-}`)
-	common.Json(htlcApi.GetHtlcInfosByTimeLockedAddress(g.User2.Address, 0, 10)).Equals(t, `
-{
-	"count": 0,
-	"list": []
-}`)
-	common.Json(htlcApi.GetHtlcInfosByHashLockedAddress(g.User2.Address, 0, 10)).Equals(t, `
-{
-	"count": 1,
-	"list": [
-		{
-			"id": "279cadb7e128de79af66d1f4abfe819350f7245e5d7036e16165f2e7ecf4bde5",
-			"timeLocked": "z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz",
-			"hashLocked": "z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx",
-			"tokenStandard": "zts1znnxxxxxxxxxxxxx9z4ulx",
-			"amount": 1000000000,
-			"expirationTime": 1000000300,
-			"hashType": 0,
-			"keyMaxSize": 32,
-			"hashLock": "Fd4QDoNykDbHp30bYIghQmK4OOcnATsGilLcpt7kV8s="
-		}
-	]
 }
 `)
 
@@ -262,9 +207,6 @@ t=2001-09-09T01:50:40+0000 lvl=dbug msg=unlocked module=embedded contract=htlc h
 
 	z.ExpectBalance(types.HtlcContract, types.ZnnTokenStandard, 0*g.Zexp)
 	z.ExpectBalance(types.HtlcContract, types.QsrTokenStandard, 0*g.Zexp)
-
-	checkZeroHtlcsFor(t, g.User1.Address, htlcApi)
-	checkZeroHtlcsFor(t, g.User2.Address, htlcApi)
 
 }
 
@@ -325,54 +267,6 @@ t=2001-09-09T01:53:30+0000 lvl=dbug msg=reclaimed module=embedded contract=htlc 
 }
 `)
 
-	common.Json(htlcApi.GetHtlcInfosByTimeLockedAddress(g.User1.Address, 0, 10)).Equals(t, `
-{
-	"count": 1,
-	"list": [
-		{
-			"id": "dbc7d894a9acd06ac2017301c1b8c5ac017327095d0af5062cb902b8077cbdc1",
-			"timeLocked": "z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz",
-			"hashLocked": "z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx",
-			"tokenStandard": "zts1qsrxxxxxxxxxxxxxmrhjll",
-			"amount": 1000000000,
-			"expirationTime": 1000000300,
-			"hashType": 0,
-			"keyMaxSize": 32,
-			"hashLock": "Fd4QDoNykDbHp30bYIghQmK4OOcnATsGilLcpt7kV8s="
-		}
-	]
-}
-`)
-	common.Json(htlcApi.GetHtlcInfosByHashLockedAddress(g.User1.Address, 0, 10)).Equals(t, `
-{
-	"count": 0,
-	"list": []
-}`)
-
-	common.Json(htlcApi.GetHtlcInfosByTimeLockedAddress(g.User2.Address, 0, 10)).Equals(t, `
-{
-	"count": 0,
-	"list": []
-}`)
-	common.Json(htlcApi.GetHtlcInfosByHashLockedAddress(g.User2.Address, 0, 10)).Equals(t, `
-{
-	"count": 1,
-	"list": [
-		{
-			"id": "dbc7d894a9acd06ac2017301c1b8c5ac017327095d0af5062cb902b8077cbdc1",
-			"timeLocked": "z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz",
-			"hashLocked": "z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx",
-			"tokenStandard": "zts1qsrxxxxxxxxxxxxxmrhjll",
-			"amount": 1000000000,
-			"expirationTime": 1000000300,
-			"hashType": 0,
-			"keyMaxSize": 32,
-			"hashLock": "Fd4QDoNykDbHp30bYIghQmK4OOcnATsGilLcpt7kV8s="
-		}
-	]
-}
-`)
-
 	// user2 tries to unlock expired with correct preimage
 	defer z.CallContract(&nom.AccountBlock{
 		Address:   g.User2.Address,
@@ -412,8 +306,6 @@ t=2001-09-09T01:53:30+0000 lvl=dbug msg=reclaimed module=embedded contract=htlc 
 	z.ExpectBalance(types.HtlcContract, types.ZnnTokenStandard, 0*g.Zexp)
 	z.ExpectBalance(types.HtlcContract, types.QsrTokenStandard, 0*g.Zexp)
 
-	checkZeroHtlcsFor(t, g.User1.Address, htlcApi)
-	checkZeroHtlcsFor(t, g.User2.Address, htlcApi)
 }
 
 func TestHtlc_unlock_access(t *testing.T) {
@@ -489,12 +381,24 @@ t=2001-09-09T01:50:40+0000 lvl=dbug msg=unlocked module=embedded contract=htlc h
 		Amount:        big.NewInt(0 * g.Zexp),
 	}).Error(t, nil)
 	z.InsertNewMomentum()
+	z.InsertNewMomentum()
 
+	autoreceive(t, z, g.User2.Address)
+	z.InsertNewMomentum()
+	z.InsertNewMomentum()
+
+	z.ExpectBalance(g.User1.Address, types.ZnnTokenStandard, (12000-10)*g.Zexp)
+	z.ExpectBalance(g.User1.Address, types.QsrTokenStandard, 120000*g.Zexp)
+
+	z.ExpectBalance(g.User2.Address, types.ZnnTokenStandard, (8000+10)*g.Zexp)
+	z.ExpectBalance(g.User2.Address, types.QsrTokenStandard, 80000*g.Zexp)
+
+	z.ExpectBalance(types.HtlcContract, types.ZnnTokenStandard, 0*g.Zexp)
+	z.ExpectBalance(types.HtlcContract, types.QsrTokenStandard, 0*g.Zexp)
 }
 
 func TestHtlc_reclaim_access(t *testing.T) {
 	z := mock.NewMockZenon(t)
-	htlcApi := embedded.NewHtlcApi(z)
 	defer z.StopPanic()
 	defer z.SaveLogs(common.EmbeddedLogger).Equals(t, `
 t=2001-09-09T01:46:50+0000 lvl=dbug msg=created module=embedded contract=spork spork="&{Id:664147f0c0a127bb4388bf8ff9a2ce777c9cc5ce9f04f9a6d418a32ef3f481c9 Name:spork-htlc Description:activate spork for htlc Activated:false EnforcementHeight:0}"
@@ -590,11 +494,20 @@ t=2001-09-09T01:53:40+0000 lvl=dbug msg=reclaimed module=embedded contract=htlc 
 		Amount:        big.NewInt(0 * g.Zexp),
 	}).Error(t, nil)
 	z.InsertNewMomentum()
+	z.InsertNewMomentum()
 
-	checkZeroHtlcsFor(t, g.User1.Address, htlcApi)
-	checkZeroHtlcsFor(t, g.User2.Address, htlcApi)
-	checkZeroHtlcsFor(t, g.User3.Address, htlcApi)
+	autoreceive(t, z, g.User1.Address)
+	z.InsertNewMomentum()
+	z.InsertNewMomentum()
 
+	z.ExpectBalance(g.User1.Address, types.ZnnTokenStandard, 12000*g.Zexp)
+	z.ExpectBalance(g.User1.Address, types.QsrTokenStandard, 120000*g.Zexp)
+
+	z.ExpectBalance(g.User2.Address, types.ZnnTokenStandard, 8000*g.Zexp)
+	z.ExpectBalance(g.User2.Address, types.QsrTokenStandard, 80000*g.Zexp)
+
+	z.ExpectBalance(types.HtlcContract, types.ZnnTokenStandard, 0*g.Zexp)
+	z.ExpectBalance(types.HtlcContract, types.QsrTokenStandard, 0*g.Zexp)
 }
 
 func TestHtlc_nonexistent(t *testing.T) {
@@ -650,8 +563,8 @@ t=2001-09-09T01:46:50+0000 lvl=dbug msg=created module=embedded contract=spork s
 t=2001-09-09T01:47:00+0000 lvl=dbug msg=activated module=embedded contract=spork spork="&{Id:664147f0c0a127bb4388bf8ff9a2ce777c9cc5ce9f04f9a6d418a32ef3f481c9 Name:spork-htlc Description:activate spork for htlc Activated:true EnforcementHeight:9}"
 t=2001-09-09T01:50:00+0000 lvl=dbug msg=created module=embedded contract=htlc htlcInfo="{Id:279cadb7e128de79af66d1f4abfe819350f7245e5d7036e16165f2e7ecf4bde5 TimeLocked:z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz HashLocked:z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx TokenStandard:zts1znnxxxxxxxxxxxxx9z4ulx Amount:+1000000000 ExpirationTime:1000000300 HashType:0 KeyMaxSize:32 HashLock:[21 222 16 14 131 114 144 54 199 167 125 27 96 136 33 66 98 184 56 231 39 1 59 6 138 82 220 166 222 228 87 203]}"
 t=2001-09-09T01:50:20+0000 lvl=dbug msg=unlocked module=embedded contract=htlc htlcInfo="&{Id:279cadb7e128de79af66d1f4abfe819350f7245e5d7036e16165f2e7ecf4bde5 TimeLocked:z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz HashLocked:z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx TokenStandard:zts1znnxxxxxxxxxxxxx9z4ulx Amount:+1000000000 ExpirationTime:1000000300 HashType:0 KeyMaxSize:32 HashLock:[21 222 16 14 131 114 144 54 199 167 125 27 96 136 33 66 98 184 56 231 39 1 59 6 138 82 220 166 222 228 87 203]}" preimage=b7845adcd41eec4e4fa1cc75a868014811b575942c6e4a72551bc01f63705634
-t=2001-09-09T01:51:00+0000 lvl=dbug msg="invalid unlock - entry does not exist" module=embedded contract=htlc id=279cadb7e128de79af66d1f4abfe819350f7245e5d7036e16165f2e7ecf4bde5 address=z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz
-t=2001-09-09T01:51:10+0000 lvl=dbug msg="invalid reclaim - entry does not exist" module=embedded contract=htlc id=279cadb7e128de79af66d1f4abfe819350f7245e5d7036e16165f2e7ecf4bde5 address=z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz
+t=2001-09-09T01:50:40+0000 lvl=dbug msg="invalid unlock - entry does not exist" module=embedded contract=htlc id=279cadb7e128de79af66d1f4abfe819350f7245e5d7036e16165f2e7ecf4bde5 address=z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz
+t=2001-09-09T01:50:50+0000 lvl=dbug msg="invalid reclaim - entry does not exist" module=embedded contract=htlc id=279cadb7e128de79af66d1f4abfe819350f7245e5d7036e16165f2e7ecf4bde5 address=z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz
 `)
 	activateHtlc(z)
 
@@ -688,8 +601,6 @@ t=2001-09-09T01:51:10+0000 lvl=dbug msg="invalid reclaim - entry does not exist"
 		TokenStandard: types.ZnnTokenStandard,
 		Amount:        big.NewInt(0 * g.Zexp),
 	}).Error(t, nil)
-	z.InsertNewMomentum()
-	z.InsertNewMomentum()
 	z.InsertNewMomentum()
 	z.InsertNewMomentum()
 
@@ -731,8 +642,8 @@ t=2001-09-09T01:46:50+0000 lvl=dbug msg=created module=embedded contract=spork s
 t=2001-09-09T01:47:00+0000 lvl=dbug msg=activated module=embedded contract=spork spork="&{Id:664147f0c0a127bb4388bf8ff9a2ce777c9cc5ce9f04f9a6d418a32ef3f481c9 Name:spork-htlc Description:activate spork for htlc Activated:true EnforcementHeight:9}"
 t=2001-09-09T01:50:00+0000 lvl=dbug msg=created module=embedded contract=htlc htlcInfo="{Id:279cadb7e128de79af66d1f4abfe819350f7245e5d7036e16165f2e7ecf4bde5 TimeLocked:z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz HashLocked:z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx TokenStandard:zts1znnxxxxxxxxxxxxx9z4ulx Amount:+1000000000 ExpirationTime:1000000300 HashType:0 KeyMaxSize:32 HashLock:[21 222 16 14 131 114 144 54 199 167 125 27 96 136 33 66 98 184 56 231 39 1 59 6 138 82 220 166 222 228 87 203]}"
 t=2001-09-09T01:53:20+0000 lvl=dbug msg=reclaimed module=embedded contract=htlc htlcInfo="&{Id:279cadb7e128de79af66d1f4abfe819350f7245e5d7036e16165f2e7ecf4bde5 TimeLocked:z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz HashLocked:z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx TokenStandard:zts1znnxxxxxxxxxxxxx9z4ulx Amount:+1000000000 ExpirationTime:1000000300 HashType:0 KeyMaxSize:32 HashLock:[21 222 16 14 131 114 144 54 199 167 125 27 96 136 33 66 98 184 56 231 39 1 59 6 138 82 220 166 222 228 87 203]}"
-t=2001-09-09T01:54:00+0000 lvl=dbug msg="invalid unlock - entry does not exist" module=embedded contract=htlc id=279cadb7e128de79af66d1f4abfe819350f7245e5d7036e16165f2e7ecf4bde5 address=z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz
-t=2001-09-09T01:54:10+0000 lvl=dbug msg="invalid reclaim - entry does not exist" module=embedded contract=htlc id=279cadb7e128de79af66d1f4abfe819350f7245e5d7036e16165f2e7ecf4bde5 address=z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz
+t=2001-09-09T01:53:40+0000 lvl=dbug msg="invalid unlock - entry does not exist" module=embedded contract=htlc id=279cadb7e128de79af66d1f4abfe819350f7245e5d7036e16165f2e7ecf4bde5 address=z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz
+t=2001-09-09T01:53:50+0000 lvl=dbug msg="invalid reclaim - entry does not exist" module=embedded contract=htlc id=279cadb7e128de79af66d1f4abfe819350f7245e5d7036e16165f2e7ecf4bde5 address=z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz
 `)
 	activateHtlc(z)
 
@@ -770,8 +681,6 @@ t=2001-09-09T01:54:10+0000 lvl=dbug msg="invalid reclaim - entry does not exist"
 	}).Error(t, nil)
 	z.InsertNewMomentum()
 	z.InsertNewMomentum()
-	z.InsertNewMomentum()
-	z.InsertNewMomentum()
 
 	// get htlcinfo rpc nonexistent
 	common.Json(htlcApi.GetHtlcInfoById(htlcId)).Error(t, constants.ErrDataNonExistent)
@@ -800,6 +709,7 @@ t=2001-09-09T01:54:10+0000 lvl=dbug msg="invalid reclaim - entry does not exist"
 		Amount:        big.NewInt(0 * g.Zexp),
 	}).Error(t, constants.ErrDataNonExistent)
 	z.InsertNewMomentum()
+
 }
 
 func TestHtlc_create_expired(t *testing.T) {
@@ -830,12 +740,26 @@ t=2001-09-09T01:50:00+0000 lvl=dbug msg="invalid create - cannot create already 
 		Amount:        big.NewInt(10 * g.Zexp),
 	}).Error(t, constants.ErrInvalidExpirationTime)
 	z.InsertNewMomentum()
+	z.InsertNewMomentum()
 
+	autoreceive(t, z, g.User1.Address)
+	z.InsertNewMomentum()
+	z.InsertNewMomentum()
+
+	z.ExpectBalance(g.User1.Address, types.ZnnTokenStandard, 12000*g.Zexp)
+	z.ExpectBalance(g.User1.Address, types.QsrTokenStandard, 120000*g.Zexp)
+
+	z.ExpectBalance(g.User2.Address, types.ZnnTokenStandard, 8000*g.Zexp)
+	z.ExpectBalance(g.User2.Address, types.QsrTokenStandard, 80000*g.Zexp)
+
+	z.ExpectBalance(types.HtlcContract, types.ZnnTokenStandard, 0*g.Zexp)
+	z.ExpectBalance(types.HtlcContract, types.QsrTokenStandard, 0*g.Zexp)
 }
 
 // test unlock htlc with ErrInvalidPreimage
 func TestHtlc_unlock_long_preimage(t *testing.T) {
 	z := mock.NewMockZenon(t)
+	htlcApi := embedded.NewHtlcApi(z)
 	defer z.StopPanic()
 	defer z.SaveLogs(common.EmbeddedLogger).Equals(t, `
 t=2001-09-09T01:46:50+0000 lvl=dbug msg=created module=embedded contract=spork spork="&{Id:664147f0c0a127bb4388bf8ff9a2ce777c9cc5ce9f04f9a6d418a32ef3f481c9 Name:spork-htlc Description:activate spork for htlc Activated:false EnforcementHeight:0}"
@@ -869,6 +793,20 @@ t=2001-09-09T01:50:20+0000 lvl=dbug msg="invalid unlock - preimage size greater 
 
 	expectedId := types.HexToHashPanic("5eab16285e906726cfc11419f29146c6ee765b8b2c044c2b60b33ddff91925ed")
 
+	common.Json(htlcApi.GetHtlcInfoById(expectedId)).Equals(t, `
+{
+	"id": "5eab16285e906726cfc11419f29146c6ee765b8b2c044c2b60b33ddff91925ed",
+	"timeLocked": "z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz",
+	"hashLocked": "z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx",
+	"tokenStandard": "zts1znnxxxxxxxxxxxxx9z4ulx",
+	"amount": 1000000000,
+	"expirationTime": 1000000300,
+	"hashType": 0,
+	"keyMaxSize": 32,
+	"hashLock": "CBRBxGZSmTPMKTf5M+Ik70GyXYeCQuiRPiTLWB7h8yU="
+}
+`)
+
 	// user2 tries to unlock with oversized preimage
 	defer z.CallContract(&nom.AccountBlock{
 		Address:   g.User2.Address,
@@ -881,6 +819,16 @@ t=2001-09-09T01:50:20+0000 lvl=dbug msg="invalid unlock - preimage size greater 
 		Amount:        big.NewInt(0 * g.Zexp),
 	}).Error(t, constants.ErrInvalidPreimage)
 	z.InsertNewMomentum()
+	z.InsertNewMomentum()
+
+	z.ExpectBalance(g.User1.Address, types.ZnnTokenStandard, (12000-10)*g.Zexp)
+	z.ExpectBalance(g.User1.Address, types.QsrTokenStandard, 120000*g.Zexp)
+
+	z.ExpectBalance(g.User2.Address, types.ZnnTokenStandard, 8000*g.Zexp)
+	z.ExpectBalance(g.User2.Address, types.QsrTokenStandard, 80000*g.Zexp)
+
+	z.ExpectBalance(types.HtlcContract, types.ZnnTokenStandard, 10*g.Zexp)
+	z.ExpectBalance(types.HtlcContract, types.QsrTokenStandard, 0*g.Zexp)
 
 }
 
@@ -981,17 +929,15 @@ t=2001-09-09T01:50:30+0000 lvl=dbug msg=unlocked module=embedded contract=htlc h
 	z.InsertNewMomentum()
 	z.InsertNewMomentum()
 
-	z.ExpectBalance(g.User1.Address, types.ZnnTokenStandard, 11990*g.Zexp)
+	z.ExpectBalance(g.User1.Address, types.ZnnTokenStandard, (12000-10)*g.Zexp)
 	z.ExpectBalance(g.User1.Address, types.QsrTokenStandard, 120000*g.Zexp)
 
-	z.ExpectBalance(g.User2.Address, types.ZnnTokenStandard, 8010*g.Zexp)
+	z.ExpectBalance(g.User2.Address, types.ZnnTokenStandard, (8000+10)*g.Zexp)
 	z.ExpectBalance(g.User2.Address, types.QsrTokenStandard, 80000*g.Zexp)
 
 	z.ExpectBalance(types.HtlcContract, types.ZnnTokenStandard, 0*g.Zexp)
 	z.ExpectBalance(types.HtlcContract, types.QsrTokenStandard, 0*g.Zexp)
 
-	checkZeroHtlcsFor(t, g.User1.Address, htlcApi)
-	checkZeroHtlcsFor(t, g.User2.Address, htlcApi)
 }
 
 func TestHtlc_hashType(t *testing.T) {
@@ -1002,9 +948,9 @@ func TestHtlc_hashType(t *testing.T) {
 t=2001-09-09T01:46:50+0000 lvl=dbug msg=created module=embedded contract=spork spork="&{Id:664147f0c0a127bb4388bf8ff9a2ce777c9cc5ce9f04f9a6d418a32ef3f481c9 Name:spork-htlc Description:activate spork for htlc Activated:false EnforcementHeight:0}"
 t=2001-09-09T01:47:00+0000 lvl=dbug msg=activated module=embedded contract=spork spork="&{Id:664147f0c0a127bb4388bf8ff9a2ce777c9cc5ce9f04f9a6d418a32ef3f481c9 Name:spork-htlc Description:activate spork for htlc Activated:true EnforcementHeight:9}"
 t=2001-09-09T01:50:00+0000 lvl=dbug msg=created module=embedded contract=htlc htlcInfo="{Id:c9fb086e859974b9fa8a0b9ebd7bffe671b8cff3de8cc9787fab73b0cd41cdaf TimeLocked:z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz HashLocked:z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx TokenStandard:zts1znnxxxxxxxxxxxxx9z4ulx Amount:+1000000000 ExpirationTime:1000000300 HashType:0 KeyMaxSize:32 HashLock:[205 134 140 113 161 201 215 44 84 153 182 139 176 110 237 55 66 119 227 51 109 132 58 15 17 145 68 97 195 93 208 54]}"
-t=2001-09-09T01:50:20+0000 lvl=dbug msg=created module=embedded contract=htlc htlcInfo="{Id:95e03b6220a552d4b178a6b97d483ef79d72f63975ffbd248fd55420ecfda555 TimeLocked:z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz HashLocked:z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx TokenStandard:zts1znnxxxxxxxxxxxxx9z4ulx Amount:+1000000000 ExpirationTime:1000000300 HashType:1 KeyMaxSize:32 HashLock:[21 222 16 14 131 114 144 54 199 167 125 27 96 136 33 66 98 184 56 231 39 1 59 6 138 82 220 166 222 228 87 203]}"
-t=2001-09-09T01:50:40+0000 lvl=dbug msg="invalid unlock - wrong preimage" module=embedded contract=htlc id=95e03b6220a552d4b178a6b97d483ef79d72f63975ffbd248fd55420ecfda555 address=z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx preimage=b7845adcd41eec4e4fa1cc75a868014811b575942c6e4a72551bc01f63705634
-t=2001-09-09T01:50:50+0000 lvl=dbug msg="invalid unlock - wrong preimage" module=embedded contract=htlc id=c9fb086e859974b9fa8a0b9ebd7bffe671b8cff3de8cc9787fab73b0cd41cdaf address=z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx preimage=b7845adcd41eec4e4fa1cc75a868014811b575942c6e4a72551bc01f63705634
+t=2001-09-09T01:50:20+0000 lvl=dbug msg=created module=embedded contract=htlc htlcInfo="{Id:a21f1b6b7057f748d59ac110d2d8395675225945ae5250659696a65004f0dda9 TimeLocked:z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz HashLocked:z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx TokenStandard:zts1znnxxxxxxxxxxxxx9z4ulx Amount:+1000000000 ExpirationTime:1000000300 HashType:1 KeyMaxSize:32 HashLock:[21 222 16 14 131 114 144 54 199 167 125 27 96 136 33 66 98 184 56 231 39 1 59 6 138 82 220 166 222 228 87 203]}"
+t=2001-09-09T01:50:40+0000 lvl=dbug msg="invalid unlock - wrong preimage" module=embedded contract=htlc id=c9fb086e859974b9fa8a0b9ebd7bffe671b8cff3de8cc9787fab73b0cd41cdaf address=z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx preimage=b7845adcd41eec4e4fa1cc75a868014811b575942c6e4a72551bc01f63705634
+t=2001-09-09T01:50:50+0000 lvl=dbug msg="invalid unlock - wrong preimage" module=embedded contract=htlc id=a21f1b6b7057f748d59ac110d2d8395675225945ae5250659696a65004f0dda9 address=z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx preimage=b7845adcd41eec4e4fa1cc75a868014811b575942c6e4a72551bc01f63705634
 `)
 	activateHtlc(z)
 
@@ -1029,6 +975,21 @@ t=2001-09-09T01:50:50+0000 lvl=dbug msg="invalid unlock - wrong preimage" module
 	z.InsertNewMomentum()
 	z.InsertNewMomentum()
 
+	expectedId1 := types.HexToHashPanic("c9fb086e859974b9fa8a0b9ebd7bffe671b8cff3de8cc9787fab73b0cd41cdaf")
+	common.Json(htlcApi.GetHtlcInfoById(expectedId1)).Equals(t, `
+{
+	"id": "c9fb086e859974b9fa8a0b9ebd7bffe671b8cff3de8cc9787fab73b0cd41cdaf",
+	"timeLocked": "z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz",
+	"hashLocked": "z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx",
+	"tokenStandard": "zts1znnxxxxxxxxxxxxx9z4ulx",
+	"amount": 1000000000,
+	"expirationTime": 1000000300,
+	"hashType": 0,
+	"keyMaxSize": 32,
+	"hashLock": "zYaMcaHJ1yxUmbaLsG7tN0J34zNthDoPEZFEYcNd0DY="
+}
+`)
+
 	// user 1 creates an htlc for user 2 using sha256
 	defer z.CallContract(&nom.AccountBlock{
 		Address:   g.User1.Address,
@@ -1046,38 +1007,20 @@ t=2001-09-09T01:50:50+0000 lvl=dbug msg="invalid unlock - wrong preimage" module
 	z.InsertNewMomentum()
 	z.InsertNewMomentum()
 
-	common.Json(htlcApi.GetHtlcInfosByHashLockedAddress(g.User2.Address, 0, 10)).Equals(t, `
+	expectedId2 := types.HexToHashPanic("a21f1b6b7057f748d59ac110d2d8395675225945ae5250659696a65004f0dda9")
+	common.Json(htlcApi.GetHtlcInfoById(expectedId2)).Equals(t, `
 {
-	"count": 2,
-	"list": [
-		{
-			"id": "95e03b6220a552d4b178a6b97d483ef79d72f63975ffbd248fd55420ecfda555",
-			"timeLocked": "z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz",
-			"hashLocked": "z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx",
-			"tokenStandard": "zts1znnxxxxxxxxxxxxx9z4ulx",
-			"amount": 1000000000,
-			"expirationTime": 1000000300,
-			"hashType": 1,
-			"keyMaxSize": 32,
-			"hashLock": "Fd4QDoNykDbHp30bYIghQmK4OOcnATsGilLcpt7kV8s="
-		},
-		{
-			"id": "c9fb086e859974b9fa8a0b9ebd7bffe671b8cff3de8cc9787fab73b0cd41cdaf",
-			"timeLocked": "z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz",
-			"hashLocked": "z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx",
-			"tokenStandard": "zts1znnxxxxxxxxxxxxx9z4ulx",
-			"amount": 1000000000,
-			"expirationTime": 1000000300,
-			"hashType": 0,
-			"keyMaxSize": 32,
-			"hashLock": "zYaMcaHJ1yxUmbaLsG7tN0J34zNthDoPEZFEYcNd0DY="
-		}
-	]
+	"id": "a21f1b6b7057f748d59ac110d2d8395675225945ae5250659696a65004f0dda9",
+	"timeLocked": "z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz",
+	"hashLocked": "z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx",
+	"tokenStandard": "zts1znnxxxxxxxxxxxxx9z4ulx",
+	"amount": 1000000000,
+	"expirationTime": 1000000300,
+	"hashType": 1,
+	"keyMaxSize": 32,
+	"hashLock": "Fd4QDoNykDbHp30bYIghQmK4OOcnATsGilLcpt7kV8s="
 }
 `)
-
-	expectedId1 := types.HexToHashPanic("95e03b6220a552d4b178a6b97d483ef79d72f63975ffbd248fd55420ecfda555")
-	expectedId2 := types.HexToHashPanic("c9fb086e859974b9fa8a0b9ebd7bffe671b8cff3de8cc9787fab73b0cd41cdaf")
 
 	// user 2 cannot unlock sha3 lock
 	defer z.CallContract(&nom.AccountBlock{
@@ -1104,5 +1047,14 @@ t=2001-09-09T01:50:50+0000 lvl=dbug msg="invalid unlock - wrong preimage" module
 		Amount:        big.NewInt(0 * g.Zexp),
 	}).Error(t, constants.ErrInvalidPreimage)
 	z.InsertNewMomentum()
+
+	z.ExpectBalance(g.User1.Address, types.ZnnTokenStandard, (12000-20)*g.Zexp)
+	z.ExpectBalance(g.User1.Address, types.QsrTokenStandard, 120000*g.Zexp)
+
+	z.ExpectBalance(g.User2.Address, types.ZnnTokenStandard, 8000*g.Zexp)
+	z.ExpectBalance(g.User2.Address, types.QsrTokenStandard, 80000*g.Zexp)
+
+	z.ExpectBalance(types.HtlcContract, types.ZnnTokenStandard, 20*g.Zexp)
+	z.ExpectBalance(types.HtlcContract, types.QsrTokenStandard, 0*g.Zexp)
 
 }
