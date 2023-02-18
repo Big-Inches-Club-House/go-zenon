@@ -9,6 +9,7 @@ import (
 	"github.com/zenon-network/go-zenon/consensus"
 	"github.com/zenon-network/go-zenon/rpc/api"
 	"github.com/zenon-network/go-zenon/vm/embedded/definition"
+	"github.com/zenon-network/go-zenon/vm/embedded/implementation"
 	"github.com/zenon-network/go-zenon/zenon"
 )
 
@@ -41,4 +42,12 @@ func (a *HtlcApi) GetHtlcInfoById(id types.Hash) (*definition.HtlcInfo, error) {
 	}
 
 	return htlcInfo, nil
+}
+
+func (a *HtlcApi) GetHtlcProxyUnlockStatus(address types.Address) (*bool, error) {
+	_, context, err := api.GetFrontierContext(a.chain, types.HtlcContract)
+	if err != nil {
+		return nil, err
+	}
+	return implementation.GetHtlcProxyUnlockStatus(context, address)
 }

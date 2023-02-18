@@ -40,12 +40,18 @@ const (
 			{"name":"hashType","type":"uint8"},
 			{"name":"keyMaxSize","type":"uint8"},
 			{"name":"hashLock","type":"bytes"}
-		]}
+		]},
+
+		{"type":"function","name":"DenyHtlcProxyUnlock","inputs":[]},
+		{"type":"function","name":"AllowHtlcProxyUnlock","inputs":[]}
 	]`
 
 	CreateHtlcMethodName  = "CreateHtlc"
 	ReclaimHtlcMethodName = "ReclaimHtlc"
 	UnlockHtlcMethodName  = "UnlockHtlc"
+
+	DenyHtlcProxyUnlockMethodName  = "DenyHtlcProxyUnlock"
+	AllowHtlcProxyUnlockMethodName = "AllowHtlcProxyUnlock"
 
 	// re: reclaim vs revoke
 	// some other embedded contracts have "revoke" methods
@@ -69,7 +75,8 @@ var HashTypeDigestSizes = map[uint8]uint8{
 var (
 	ABIHtlc = abi.JSONToABIContract(strings.NewReader(jsonHtlc))
 
-	htlcInfoKeyPrefix = []byte{1}
+	htlcInfoKeyPrefix            = []byte{1}
+	htlcProxyUnlockInfoKeyPrefix = []byte{2}
 )
 
 type CreateHtlcParam struct {
@@ -160,5 +167,63 @@ func GetHtlcInfo(context db.DB, id types.Hash) (*HtlcInfo, error) {
 		return nil, err
 	} else {
 		return parseHtlcInfo(key, data)
+	}
+}
+
+type HtlcProxyUnlockInfo struct {
+	Address types.Address
+	Allowed bool
+}
+
+func (entry *HtlcProxyUnlockInfo) Save(context db.DB) error {
+	key := getHtlcProxyUnlockInfoKey(entry.Address)
+	if entry.Allowed {
+		return context.Put(key, []byte{1})
+	} else {
+		return context.Put(key, []byte{0})
+	}
+}
+func (entry *HtlcProxyUnlockInfo) Delete(context db.DB) error {
+	key := getHtlcProxyUnlockInfoKey(entry.Address)
+	return context.Delete(key)
+}
+
+func getHtlcProxyUnlockInfoKey(address types.Address) []byte {
+	return common.JoinBytes(htlcProxyUnlockInfoKeyPrefix, address.Bytes())
+}
+func isHtlcProxyUnlockInfoKey(key []byte) bool {
+	return key[0] == htlcProxyUnlockInfoKeyPrefix[0]
+}
+func unmarshalHtlcProxyUnlockInfoKey(key []byte) (*types.Address, error) {
+	if !isHtlcProxyUnlockInfoKey(key) {
+		return nil, errors.Errorf("invalid key! Not htcl proxy-unlock info key")
+	}
+	a := new(types.Address)
+	err := a.SetBytes(key[1:])
+	if err != nil {
+		return nil, err
+	}
+	return a, nil
+}
+func parseHtlcProxyUnlockInfo(key, data []byte) (*HtlcProxyUnlockInfo, error) {
+	if len(data) > 0 {
+		info := new(HtlcProxyUnlockInfo)
+		address, err := unmarshalHtlcProxyUnlockInfoKey(key)
+		if err != nil {
+			return nil, err
+		}
+		info.Address = *address
+		info.Allowed = data[0] == 1
+		return info, nil
+	} else {
+		return nil, constants.ErrDataNonExistent
+	}
+}
+func GetHtlcProxyUnlockInfo(context db.DB, address types.Address) (*HtlcProxyUnlockInfo, error) {
+	key := getHtlcProxyUnlockInfoKey(address)
+	if data, err := context.Get(key); err != nil {
+		return nil, err
+	} else {
+		return parseHtlcProxyUnlockInfo(key, data)
 	}
 }

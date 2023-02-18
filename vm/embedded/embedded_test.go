@@ -36,7 +36,9 @@ func TestDumpContractsABIMethods(t *testing.T) {
 {"address":"z1qxemdeddedxaccelerat0rxxxxxxxxxxp4tk22", "name":"UpdatePhase", "id":"c1d7d323", "signature":"UpdatePhase(hash,string,string,string,uint256,uint256)"}
 {"address":"z1qxemdeddedxaccelerat0rxxxxxxxxxxp4tk22", "name":"VoteByName", "id":"5c6c1064", "signature":"VoteByName(hash,string,uint8)"}
 {"address":"z1qxemdeddedxaccelerat0rxxxxxxxxxxp4tk22", "name":"VoteByProdAddress", "id":"90ed001c", "signature":"VoteByProdAddress(hash,uint8)"}
+{"address":"z1qxemdeddedxhtlcxxxxxxxxxxxxxxxxxygecvw", "name":"AllowHtlcProxyUnlock", "id":"80794cc3", "signature":"AllowHtlcProxyUnlock()"}
 {"address":"z1qxemdeddedxhtlcxxxxxxxxxxxxxxxxxygecvw", "name":"CreateHtlc", "id":"1880e866", "signature":"CreateHtlc(address,int64,uint8,uint8,bytes)"}
+{"address":"z1qxemdeddedxhtlcxxxxxxxxxxxxxxxxxygecvw", "name":"DenyHtlcProxyUnlock", "id":"51bd453c", "signature":"DenyHtlcProxyUnlock()"}
 {"address":"z1qxemdeddedxhtlcxxxxxxxxxxxxxxxxxygecvw", "name":"ReclaimHtlc", "id":"d8ab94a1", "signature":"ReclaimHtlc(hash)"}
 {"address":"z1qxemdeddedxhtlcxxxxxxxxxxxxxxxxxygecvw", "name":"UnlockHtlc", "id":"0b247d71", "signature":"UnlockHtlc(hash,bytes)"}
 {"address":"z1qxemdeddedxlyquydytyxxxxxxxxxxxxflaaae", "name":"BurnZnn", "id":"096b75a4", "signature":"BurnZnn(uint256)"}

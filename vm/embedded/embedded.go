@@ -41,9 +41,11 @@ func getHtlc() map[types.Address]*embeddedImplementation {
 	contracts := getAccelerator()
 	contracts[types.HtlcContract] = &embeddedImplementation{
 		map[string]Method{
-			cabi.CreateHtlcMethodName:  &implementation.CreateHtlcMethod{cabi.CreateHtlcMethodName},
-			cabi.ReclaimHtlcMethodName: &implementation.ReclaimHtlcMethod{cabi.ReclaimHtlcMethodName},
-			cabi.UnlockHtlcMethodName:  &implementation.UnlockHtlcMethod{cabi.UnlockHtlcMethodName},
+			cabi.CreateHtlcMethodName:           &implementation.CreateHtlcMethod{cabi.CreateHtlcMethodName},
+			cabi.ReclaimHtlcMethodName:          &implementation.ReclaimHtlcMethod{cabi.ReclaimHtlcMethodName},
+			cabi.UnlockHtlcMethodName:           &implementation.UnlockHtlcMethod{cabi.UnlockHtlcMethodName},
+			cabi.DenyHtlcProxyUnlockMethodName:  &implementation.DenyHtlcProxyUnlockMethod{cabi.DenyHtlcProxyUnlockMethodName},
+			cabi.AllowHtlcProxyUnlockMethodName: &implementation.AllowHtlcProxyUnlockMethod{cabi.AllowHtlcProxyUnlockMethodName},
 		},
 		cabi.ABIHtlc,
 	}

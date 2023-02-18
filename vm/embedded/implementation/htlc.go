@@ -17,6 +17,26 @@ var (
 	htlcLog = common.EmbeddedLogger.New("contract", "htlc")
 )
 
+// Neither the DenyHtlcProxyUnlock nor the AllowHtlcProxyUnlock methods delete the HtlcProxyUnlockInfo in storage
+// This means there are really 3 states: Default, ExplicitDeny, ExplicitAllow
+// And once an address has explicitly denied/allowed proxy unlock, it can no longer go back to using the default
+// This is to ensure that if we ever change the default to deny, addresses that have called the Allow method will still work as expected
+func GetHtlcProxyUnlockStatus(context vm_context.AccountVmContext, address types.Address) (*bool, error) {
+	info, err := definition.GetHtlcProxyUnlockInfo(context.Storage(), address)
+	allowed := new(bool)
+	if err != nil {
+		if err == constants.ErrDataNonExistent {
+			// This defines the default behavior to allow proxy unlocks
+			*allowed = true
+			return allowed, nil
+		}
+		return nil, err
+	} else {
+		allowed = &info.Allowed
+		return allowed, nil
+	}
+}
+
 func checkHtlc(param definition.CreateHtlcParam) error {
 
 	if param.HashType != definition.HashTypeSHA3 && param.HashType != definition.HashTypeSHA256 {
@@ -161,7 +181,7 @@ func (p *ReclaimHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, se
 	return []*nom.AccountBlock{
 		{
 			Address:       types.HtlcContract,
-			ToAddress:     sendBlock.Address,
+			ToAddress:     htlcInfo.TimeLocked,
 			BlockType:     nom.BlockTypeContractSend,
 			Amount:        htlcInfo.Amount,
 			TokenStandard: htlcInfo.TokenStandard,
@@ -212,8 +232,10 @@ func (p *UnlockHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, sen
 	}
 	common.DealWithErr(err)
 
-	// only hashlocked can unlock
-	if sendBlock.Address != htlcInfo.HashLocked {
+	allowProxyUnlock, err := GetHtlcProxyUnlockStatus(context, htlcInfo.HashLocked)
+	common.DealWithErr(err)
+	// if proxy unlock is not allowed, only hashlocked can unlock
+	if !(*allowProxyUnlock) && sendBlock.Address != htlcInfo.HashLocked {
 		htlcLog.Debug("invalid unlock - permission denied", "id", htlcInfo.Id, "address", sendBlock.Address)
 		return nil, constants.ErrPermissionDenied
 	}
@@ -249,11 +271,89 @@ func (p *UnlockHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, sen
 	return []*nom.AccountBlock{
 		{
 			Address:       types.HtlcContract,
-			ToAddress:     sendBlock.Address,
+			ToAddress:     htlcInfo.HashLocked,
 			BlockType:     nom.BlockTypeContractSend,
 			Amount:        htlcInfo.Amount,
 			TokenStandard: htlcInfo.TokenStandard,
 			Data:          []byte{},
 		},
 	}, nil
+}
+
+type DenyHtlcProxyUnlockMethod struct {
+	MethodName string
+}
+
+func (p *DenyHtlcProxyUnlockMethod) GetPlasma(plasmaTable *constants.PlasmaTable) (uint64, error) {
+	return plasmaTable.EmbeddedSimple, nil
+}
+
+func (p *DenyHtlcProxyUnlockMethod) ValidateSendBlock(block *nom.AccountBlock) error {
+	var err error
+
+	if err := definition.ABIHtlc.UnpackEmptyMethod(p.MethodName, block.Data); err != nil {
+		return constants.ErrUnpackError
+	}
+
+	if block.Amount.Sign() != 0 {
+		return constants.ErrInvalidTokenOrAmount
+	}
+
+	block.Data, err = definition.ABIHtlc.PackMethod(p.MethodName)
+	return err
+}
+
+func (p *DenyHtlcProxyUnlockMethod) ReceiveBlock(context vm_context.AccountVmContext, sendBlock *nom.AccountBlock) ([]*nom.AccountBlock, error) {
+	if err := p.ValidateSendBlock(sendBlock); err != nil {
+		htlcLog.Debug("invalid create - syntactic validation failed", "address", sendBlock.Address, "reason", err)
+		return nil, err
+	}
+	info := &definition.HtlcProxyUnlockInfo{
+		Address: sendBlock.Address,
+		Allowed: false,
+	}
+	if err := info.Save(context.Storage()); err != nil {
+		return nil, err
+	}
+	htlcLog.Debug("deny proxy unlock", "address", sendBlock.Address)
+	return nil, nil
+}
+
+type AllowHtlcProxyUnlockMethod struct {
+	MethodName string
+}
+
+func (p *AllowHtlcProxyUnlockMethod) GetPlasma(plasmaTable *constants.PlasmaTable) (uint64, error) {
+	return plasmaTable.EmbeddedSimple, nil
+}
+
+func (p *AllowHtlcProxyUnlockMethod) ValidateSendBlock(block *nom.AccountBlock) error {
+	var err error
+
+	if err := definition.ABIHtlc.UnpackEmptyMethod(p.MethodName, block.Data); err != nil {
+		return constants.ErrUnpackError
+	}
+
+	if block.Amount.Sign() != 0 {
+		return constants.ErrInvalidTokenOrAmount
+	}
+
+	block.Data, err = definition.ABIHtlc.PackMethod(p.MethodName)
+	return err
+}
+
+func (p *AllowHtlcProxyUnlockMethod) ReceiveBlock(context vm_context.AccountVmContext, sendBlock *nom.AccountBlock) ([]*nom.AccountBlock, error) {
+	if err := p.ValidateSendBlock(sendBlock); err != nil {
+		htlcLog.Debug("invalid create - syntactic validation failed", "address", sendBlock.Address, "reason", err)
+		return nil, err
+	}
+	info := &definition.HtlcProxyUnlockInfo{
+		Address: sendBlock.Address,
+		Allowed: true,
+	}
+	if err := info.Save(context.Storage()); err != nil {
+		return nil, err
+	}
+	htlcLog.Debug("allow proxy unlock", "address", sendBlock.Address)
+	return nil, nil
 }
