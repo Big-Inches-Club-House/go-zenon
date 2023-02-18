@@ -1,6 +1,8 @@
 package definition
 
 import (
+	"encoding/base64"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -16,17 +18,17 @@ import (
 const (
 	jsonHtlc = `
 	[
-		{"type":"function","name":"CreateHtlc", "inputs":[
+		{"type":"function","name":"Create", "inputs":[
 			{"name":"hashLocked","type":"address"},
 			{"name":"expirationTime","type":"int64"},
 			{"name":"hashType","type":"uint8"},
 			{"name":"keyMaxSize","type":"uint8"},
 			{"name":"hashLock","type":"bytes"}
 		]},
-		{"type":"function","name":"ReclaimHtlc","inputs":[
+		{"type":"function","name":"Reclaim","inputs":[
 			{"name":"id","type":"hash"}
 		]},
-		{"type":"function","name":"UnlockHtlc","inputs":[
+		{"type":"function","name":"Unlock","inputs":[
 			{"name":"id","type":"hash"},
 			{"name":"preimage","type":"bytes"}
 		]},
@@ -42,16 +44,16 @@ const (
 			{"name":"hashLock","type":"bytes"}
 		]},
 
-		{"type":"function","name":"DenyHtlcProxyUnlock","inputs":[]},
-		{"type":"function","name":"AllowHtlcProxyUnlock","inputs":[]}
+		{"type":"function","name":"DenyProxyUnlock","inputs":[]},
+		{"type":"function","name":"AllowProxyUnlock","inputs":[]}
 	]`
 
-	CreateHtlcMethodName  = "CreateHtlc"
-	ReclaimHtlcMethodName = "ReclaimHtlc"
-	UnlockHtlcMethodName  = "UnlockHtlc"
+	CreateHtlcMethodName  = "Create"
+	ReclaimHtlcMethodName = "Reclaim"
+	UnlockHtlcMethodName  = "Unlock"
 
-	DenyHtlcProxyUnlockMethodName  = "DenyHtlcProxyUnlock"
-	AllowHtlcProxyUnlockMethodName = "AllowHtlcProxyUnlock"
+	DenyHtlcProxyUnlockMethodName  = "DenyProxyUnlock"
+	AllowHtlcProxyUnlockMethodName = "AllowProxyUnlock"
 
 	// re: reclaim vs revoke
 	// some other embedded contracts have "revoke" methods
@@ -97,6 +99,10 @@ type HtlcInfo struct {
 	HashType       uint8                    `json:"hashType"`
 	KeyMaxSize     uint8                    `json:"keyMaxSize"`
 	HashLock       []byte                   `json:"hashLock"`
+}
+
+func (h HtlcInfo) String() string {
+	return fmt.Sprintf("Id:%s TimeLocked:%s HashLocked:%s TokenStandard:%s Amount:%s ExpirationTime:%d HashType:%d KeyMaxSize:%d HashLock:%s", h.Id, h.TimeLocked, h.HashLocked, h.TokenStandard, h.Amount, h.ExpirationTime, h.HashType, h.KeyMaxSize, base64.StdEncoding.EncodeToString(h.HashLock))
 }
 
 type UnlockHtlcParam struct {

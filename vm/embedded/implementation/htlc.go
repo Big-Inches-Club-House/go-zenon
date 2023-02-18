@@ -17,7 +17,7 @@ var (
 	htlcLog = common.EmbeddedLogger.New("contract", "htlc")
 )
 
-// Neither the DenyHtlcProxyUnlock nor the AllowHtlcProxyUnlock methods delete the HtlcProxyUnlockInfo in storage
+// Neither the DenyProxyUnlock nor the AllowProxyUnlock methods delete the HtlcProxyUnlockInfo in storage
 // This means there are really 3 states: Default, ExplicitDeny, ExplicitAllow
 // And once an address has explicitly denied/allowed proxy unlock, it can no longer go back to using the default
 // This is to ensure that if we ever change the default to deny, addresses that have called the Allow method will still work as expected
@@ -104,7 +104,7 @@ func (p *CreateHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, sen
 		return nil, constants.ErrInvalidExpirationTime
 	}
 
-	htlcInfo := definition.HtlcInfo{
+	htlcInfo := &definition.HtlcInfo{
 		Id:             sendBlock.Hash,
 		TimeLocked:     sendBlock.Address,
 		HashLocked:     param.HashLocked,
