@@ -45,7 +45,11 @@ const (
 		]},
 
 		{"type":"function","name":"DenyProxyUnlock","inputs":[]},
-		{"type":"function","name":"AllowProxyUnlock","inputs":[]}
+		{"type":"function","name":"AllowProxyUnlock","inputs":[]},
+
+		{"type":"variable","name":"htlcProxyUnlockInfo","inputs":[
+			{"name":"allowed","type":"bool"}
+		]}
 	]`
 
 	CreateHtlcMethodName  = "Create"
@@ -61,7 +65,8 @@ const (
 	// for htlcs, we invalidate unlocking via preimage as soon as soon as the expiration time arrives
 	// however the funds still sit in the contract and exist as an entry, so we use "reclaim"
 
-	variableNameHtlcInfo = "htlcInfo"
+	variableNameHtlcInfo            = "htlcInfo"
+	variableNameHtlcProxyUnlockInfo = "htlcProxyUnlockInfo"
 )
 
 const (
@@ -182,12 +187,14 @@ type HtlcProxyUnlockInfo struct {
 }
 
 func (entry *HtlcProxyUnlockInfo) Save(context db.DB) error {
-	key := getHtlcProxyUnlockInfoKey(entry.Address)
-	if entry.Allowed {
-		return context.Put(key, []byte{1})
-	} else {
-		return context.Put(key, []byte{0})
+	data, err := ABIHtlc.PackVariable(
+		variableNameHtlcProxyUnlockInfo,
+		entry.Allowed,
+	)
+	if err != nil {
+		return err
 	}
+	return context.Put(getHtlcProxyUnlockInfoKey(entry.Address), data)
 }
 func (entry *HtlcProxyUnlockInfo) Delete(context db.DB) error {
 	key := getHtlcProxyUnlockInfoKey(entry.Address)
@@ -214,12 +221,14 @@ func unmarshalHtlcProxyUnlockInfoKey(key []byte) (*types.Address, error) {
 func parseHtlcProxyUnlockInfo(key, data []byte) (*HtlcProxyUnlockInfo, error) {
 	if len(data) > 0 {
 		info := new(HtlcProxyUnlockInfo)
+		if err := ABIHtlc.UnpackVariable(info, variableNameHtlcProxyUnlockInfo, data); err != nil {
+			return nil, err
+		}
 		address, err := unmarshalHtlcProxyUnlockInfoKey(key)
 		if err != nil {
 			return nil, err
 		}
 		info.Address = *address
-		info.Allowed = data[0] == 1
 		return info, nil
 	} else {
 		return nil, constants.ErrDataNonExistent
