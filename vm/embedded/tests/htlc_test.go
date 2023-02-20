@@ -141,7 +141,7 @@ t=2001-09-09T01:50:40+0000 lvl=dbug msg=unlocked module=embedded contract=htlc h
 
 	htlcId := types.HexToHashPanic("7efdcca315f86cdb04e84113bfc5f003fa49c4b3f9b287cd3b4a08d8ccdf6ffc")
 
-	common.Json(htlcApi.GetHtlcInfoById(htlcId)).Equals(t, `
+	common.Json(htlcApi.GetById(htlcId)).Equals(t, `
 {
 	"id": "7efdcca315f86cdb04e84113bfc5f003fa49c4b3f9b287cd3b4a08d8ccdf6ffc",
 	"timeLocked": "z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz",
@@ -253,7 +253,7 @@ t=2001-09-09T01:53:30+0000 lvl=dbug msg=reclaimed module=embedded contract=htlc 
 
 	htlcId := types.HexToHashPanic("c1b78112f757c24d290374c7992c8c90c980237e95d04ab010531c55ca6496c9")
 
-	common.Json(htlcApi.GetHtlcInfoById(htlcId)).Equals(t, `
+	common.Json(htlcApi.GetById(htlcId)).Equals(t, `
 {
 	"id": "c1b78112f757c24d290374c7992c8c90c980237e95d04ab010531c55ca6496c9",
 	"timeLocked": "z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz",
@@ -325,7 +325,7 @@ t=2001-09-09T01:50:40+0000 lvl=dbug msg=unlocked module=embedded contract=htlc h
 	lock := crypto.Hash(preimage)
 
 	// Check the default proxy unlock status
-	common.Json(htlcApi.GetHtlcProxyUnlockStatus(g.User2.Address)).Equals(t, `true`)
+	common.Json(htlcApi.GetProxyUnlockStatus(g.User2.Address)).Equals(t, `true`)
 
 	// user 1 creates an htlc for user 2
 	defer z.CallContract(&nom.AccountBlock{
@@ -375,7 +375,7 @@ t=2001-09-09T01:50:40+0000 lvl=dbug msg=unlocked module=embedded contract=htlc h
 	z.InsertNewMomentum()
 	z.InsertNewMomentum()
 
-	common.Json(htlcApi.GetHtlcInfoById(htlcId)).Error(t, constants.ErrDataNonExistent)
+	common.Json(htlcApi.GetById(htlcId)).Error(t, constants.ErrDataNonExistent)
 
 	autoreceive(t, z, g.User2.Address)
 	z.InsertNewMomentum()
@@ -441,7 +441,7 @@ t=2001-09-09T01:50:50+0000 lvl=dbug msg=unlocked module=embedded contract=htlc h
 	}).Error(t, nil)
 	z.InsertNewMomentum()
 
-	common.Json(htlcApi.GetHtlcProxyUnlockStatus(g.User2.Address)).Equals(t, `false`)
+	common.Json(htlcApi.GetProxyUnlockStatus(g.User2.Address)).Equals(t, `false`)
 
 	// user 1 tries to unlock with correct preimage
 	defer z.CallContract(&nom.AccountBlock{
@@ -483,7 +483,7 @@ t=2001-09-09T01:50:50+0000 lvl=dbug msg=unlocked module=embedded contract=htlc h
 	z.InsertNewMomentum()
 	z.InsertNewMomentum()
 
-	common.Json(htlcApi.GetHtlcInfoById(htlcId)).Error(t, constants.ErrDataNonExistent)
+	common.Json(htlcApi.GetById(htlcId)).Error(t, constants.ErrDataNonExistent)
 
 	autoreceive(t, z, g.User2.Address)
 	z.InsertNewMomentum()
@@ -569,7 +569,7 @@ t=2001-09-09T01:51:30+0000 lvl=dbug msg=unlocked module=embedded contract=htlc h
 	}).Error(t, nil)
 	z.InsertNewMomentum()
 
-	common.Json(htlcApi.GetHtlcProxyUnlockStatus(g.User2.Address)).Equals(t, `false`)
+	common.Json(htlcApi.GetProxyUnlockStatus(g.User2.Address)).Equals(t, `false`)
 
 	// user 2 allows proxy unlock
 	defer z.CallContract(&nom.AccountBlock{
@@ -581,7 +581,7 @@ t=2001-09-09T01:51:30+0000 lvl=dbug msg=unlocked module=embedded contract=htlc h
 	}).Error(t, nil)
 	z.InsertNewMomentum()
 
-	common.Json(htlcApi.GetHtlcProxyUnlockStatus(g.User2.Address)).Equals(t, `true`)
+	common.Json(htlcApi.GetProxyUnlockStatus(g.User2.Address)).Equals(t, `true`)
 
 	// user 3 tries to unlock the first htlc with wrong preimage
 	defer z.CallContract(&nom.AccountBlock{
@@ -636,7 +636,7 @@ t=2001-09-09T01:51:30+0000 lvl=dbug msg=unlocked module=embedded contract=htlc h
 	z.InsertNewMomentum()
 	z.InsertNewMomentum()
 
-	common.Json(htlcApi.GetHtlcInfoById(htlcId)).Error(t, constants.ErrDataNonExistent)
+	common.Json(htlcApi.GetById(htlcId)).Error(t, constants.ErrDataNonExistent)
 
 	autoreceive(t, z, g.User2.Address)
 	z.InsertNewMomentum()
@@ -781,7 +781,7 @@ t=2001-09-09T01:50:10+0000 lvl=dbug msg="invalid reclaim - entry does not exist"
 	nonexistentId := types.HexToHashPanic("7efdcca315f86cdb04e84113bfc5f003fa49c4b3f9b287cd3b4a08d8ccdf6ffc")
 
 	// get htlcinfo rpc nonexistent
-	common.Json(htlcApi.GetHtlcInfoById(nonexistentId)).Error(t, constants.ErrDataNonExistent)
+	common.Json(htlcApi.GetById(nonexistentId)).Error(t, constants.ErrDataNonExistent)
 
 	// unlock nonexistent
 	defer z.CallContract(&nom.AccountBlock{
@@ -860,7 +860,7 @@ t=2001-09-09T01:50:50+0000 lvl=dbug msg="invalid reclaim - entry does not exist"
 	z.InsertNewMomentum()
 
 	// get htlcinfo rpc nonexistent
-	common.Json(htlcApi.GetHtlcInfoById(htlcId)).Error(t, constants.ErrDataNonExistent)
+	common.Json(htlcApi.GetById(htlcId)).Error(t, constants.ErrDataNonExistent)
 
 	// unlock nonexistent
 	defer z.CallContract(&nom.AccountBlock{
@@ -938,7 +938,7 @@ t=2001-09-09T01:53:50+0000 lvl=dbug msg="invalid reclaim - entry does not exist"
 	z.InsertNewMomentum()
 
 	// get htlcinfo rpc nonexistent
-	common.Json(htlcApi.GetHtlcInfoById(htlcId)).Error(t, constants.ErrDataNonExistent)
+	common.Json(htlcApi.GetById(htlcId)).Error(t, constants.ErrDataNonExistent)
 
 	// unlock nonexistent
 	defer z.CallContract(&nom.AccountBlock{
@@ -1048,7 +1048,7 @@ t=2001-09-09T01:50:20+0000 lvl=dbug msg="invalid unlock - preimage size greater 
 
 	htlcId := types.HexToHashPanic("e243752d51ece92295429843f06e21bc12b18129d6c79498552fe513b51f488f")
 
-	common.Json(htlcApi.GetHtlcInfoById(htlcId)).Equals(t, `
+	common.Json(htlcApi.GetById(htlcId)).Equals(t, `
 {
 	"id": "e243752d51ece92295429843f06e21bc12b18129d6c79498552fe513b51f488f",
 	"timeLocked": "z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz",
@@ -1138,7 +1138,7 @@ t=2001-09-09T01:50:30+0000 lvl=dbug msg=unlocked module=embedded contract=htlc h
 
 	htlcId := types.HexToHashPanic("6cd142141eb8485376a04194000764a08f42cf2b9531945b5dbfed1259969e82")
 
-	common.Json(htlcApi.GetHtlcInfoById(htlcId)).Equals(t, `
+	common.Json(htlcApi.GetById(htlcId)).Equals(t, `
 {
 	"id": "6cd142141eb8485376a04194000764a08f42cf2b9531945b5dbfed1259969e82",
 	"timeLocked": "z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz",
@@ -1231,7 +1231,7 @@ t=2001-09-09T01:50:50+0000 lvl=dbug msg="invalid unlock - wrong preimage" module
 	z.InsertNewMomentum()
 
 	htlcId1 := types.HexToHashPanic("147b9ca1b4c6b0c205b6c5bfe0f501ec6cd9f2acfeaaeb51751e960a6d9543cf")
-	common.Json(htlcApi.GetHtlcInfoById(htlcId1)).Equals(t, `
+	common.Json(htlcApi.GetById(htlcId1)).Equals(t, `
 {
 	"id": "147b9ca1b4c6b0c205b6c5bfe0f501ec6cd9f2acfeaaeb51751e960a6d9543cf",
 	"timeLocked": "z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz",
@@ -1263,7 +1263,7 @@ t=2001-09-09T01:50:50+0000 lvl=dbug msg="invalid unlock - wrong preimage" module
 	z.InsertNewMomentum()
 
 	htlcId2 := types.HexToHashPanic("3b126fa7fc90cbd55e311fdfe9b2a9943a0ced7ba41a6388913a539cb719821e")
-	common.Json(htlcApi.GetHtlcInfoById(htlcId2)).Equals(t, `
+	common.Json(htlcApi.GetById(htlcId2)).Equals(t, `
 {
 	"id": "3b126fa7fc90cbd55e311fdfe9b2a9943a0ced7ba41a6388913a539cb719821e",
 	"timeLocked": "z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz",
