@@ -308,6 +308,145 @@ t=2001-09-09T01:53:30+0000 lvl=dbug msg=reclaimed module=embedded contract=htlc 
 
 }
 
+func TestHtlc_create_expiration_time(t *testing.T) {
+	z := mock.NewMockZenon(t)
+	defer z.StopPanic()
+	defer z.SaveLogs(common.EmbeddedLogger).Equals(t, `
+t=2001-09-09T01:46:50+0000 lvl=dbug msg=created module=embedded contract=spork spork="&{Id:664147f0c0a127bb4388bf8ff9a2ce777c9cc5ce9f04f9a6d418a32ef3f481c9 Name:spork-htlc Description:activate spork for htlc Activated:false EnforcementHeight:0}"
+t=2001-09-09T01:47:00+0000 lvl=dbug msg=activated module=embedded contract=spork spork="&{Id:664147f0c0a127bb4388bf8ff9a2ce777c9cc5ce9f04f9a6d418a32ef3f481c9 Name:spork-htlc Description:activate spork for htlc Activated:true EnforcementHeight:9}"
+t=2001-09-09T01:51:40+0000 lvl=dbug msg="invalid create - cannot create already expired" module=embedded contract=htlc address=z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz time=1000000300 expiration-time=1000000300
+`)
+	activateHtlc(z)
+
+	preimage := preimageZ
+	lock := crypto.Hash(preimage)
+
+	z.InsertMomentumsTo(30)
+	// Sun Sep 09 2001 01:51:40 GMT+0000
+	// check the time in the logs
+
+	// user 1 creates an htlc for user 2
+	defer z.CallContract(&nom.AccountBlock{
+		Address:   g.User1.Address,
+		ToAddress: types.HtlcContract,
+		Data: definition.ABIHtlc.PackMethodPanic(definition.CreateHtlcMethodName,
+			g.User2.Address,                // hashlocked
+			int64(genesisTimestamp+300),    // expiration time
+			uint8(definition.HashTypeSHA3), // hash type
+			uint8(32),                      // max preimage size
+			lock,                           // hashlock
+		),
+		TokenStandard: types.ZnnTokenStandard,
+		Amount:        big.NewInt(10 * g.Zexp),
+	}).Error(t, constants.ErrInvalidExpirationTime)
+	z.InsertNewMomentum()
+	z.InsertNewMomentum()
+}
+
+func TestHtlc_unlock_expiration_time(t *testing.T) {
+	z := mock.NewMockZenon(t)
+	defer z.StopPanic()
+	defer z.SaveLogs(common.EmbeddedLogger).Equals(t, `
+t=2001-09-09T01:46:50+0000 lvl=dbug msg=created module=embedded contract=spork spork="&{Id:664147f0c0a127bb4388bf8ff9a2ce777c9cc5ce9f04f9a6d418a32ef3f481c9 Name:spork-htlc Description:activate spork for htlc Activated:false EnforcementHeight:0}"
+t=2001-09-09T01:47:00+0000 lvl=dbug msg=activated module=embedded contract=spork spork="&{Id:664147f0c0a127bb4388bf8ff9a2ce777c9cc5ce9f04f9a6d418a32ef3f481c9 Name:spork-htlc Description:activate spork for htlc Activated:true EnforcementHeight:9}"
+t=2001-09-09T01:50:00+0000 lvl=dbug msg=created module=embedded contract=htlc htlcInfo="Id:7efdcca315f86cdb04e84113bfc5f003fa49c4b3f9b287cd3b4a08d8ccdf6ffc TimeLocked:z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz HashLocked:z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx TokenStandard:zts1znnxxxxxxxxxxxxx9z4ulx Amount:1000000000 ExpirationTime:1000000300 HashType:0 KeyMaxSize:32 HashLock:Fd4QDoNykDbHp30bYIghQmK4OOcnATsGilLcpt7kV8s="
+t=2001-09-09T01:51:40+0000 lvl=dbug msg="invalid unlock - entry is expired" module=embedded contract=htlc id=7efdcca315f86cdb04e84113bfc5f003fa49c4b3f9b287cd3b4a08d8ccdf6ffc address=z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx time=1000000300 expiration-time=1000000300
+`)
+	activateHtlc(z)
+
+	preimage := preimageZ
+	lock := crypto.Hash(preimage)
+
+	// user 1 creates an htlc for user 2
+	defer z.CallContract(&nom.AccountBlock{
+		Address:   g.User1.Address,
+		ToAddress: types.HtlcContract,
+		Data: definition.ABIHtlc.PackMethodPanic(definition.CreateHtlcMethodName,
+			g.User2.Address,                // hashlocked
+			int64(genesisTimestamp+300),    // expiration time
+			uint8(definition.HashTypeSHA3), // hash type
+			uint8(32),                      // max preimage size
+			lock,                           // hashlock
+		),
+		TokenStandard: types.ZnnTokenStandard,
+		Amount:        big.NewInt(10 * g.Zexp),
+	}).Error(t, nil)
+	z.InsertNewMomentum()
+	z.InsertNewMomentum()
+
+	htlcId := types.HexToHashPanic("7efdcca315f86cdb04e84113bfc5f003fa49c4b3f9b287cd3b4a08d8ccdf6ffc")
+
+	z.InsertMomentumsTo(30)
+	// Sun Sep 09 2001 01:51:40 GMT+0000
+	// check the time in the logs
+
+	// user2 tries to unlock expired with correct preimage
+	defer z.CallContract(&nom.AccountBlock{
+		Address:   g.User2.Address,
+		ToAddress: types.HtlcContract,
+		Data: definition.ABIHtlc.PackMethodPanic(definition.UnlockHtlcMethodName,
+			htlcId,   // entry id
+			preimage, // preimage
+		),
+		TokenStandard: types.ZnnTokenStandard,
+		Amount:        big.NewInt(0 * g.Zexp),
+	}).Error(t, constants.ErrExpired)
+	z.InsertNewMomentum()
+	z.InsertNewMomentum()
+
+}
+
+func TestHtlc_reclaim_expiration_time(t *testing.T) {
+	z := mock.NewMockZenon(t)
+	defer z.StopPanic()
+	defer z.SaveLogs(common.EmbeddedLogger).Equals(t, `
+t=2001-09-09T01:46:50+0000 lvl=dbug msg=created module=embedded contract=spork spork="&{Id:664147f0c0a127bb4388bf8ff9a2ce777c9cc5ce9f04f9a6d418a32ef3f481c9 Name:spork-htlc Description:activate spork for htlc Activated:false EnforcementHeight:0}"
+t=2001-09-09T01:47:00+0000 lvl=dbug msg=activated module=embedded contract=spork spork="&{Id:664147f0c0a127bb4388bf8ff9a2ce777c9cc5ce9f04f9a6d418a32ef3f481c9 Name:spork-htlc Description:activate spork for htlc Activated:true EnforcementHeight:9}"
+t=2001-09-09T01:50:00+0000 lvl=dbug msg=created module=embedded contract=htlc htlcInfo="Id:7efdcca315f86cdb04e84113bfc5f003fa49c4b3f9b287cd3b4a08d8ccdf6ffc TimeLocked:z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz HashLocked:z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx TokenStandard:zts1znnxxxxxxxxxxxxx9z4ulx Amount:1000000000 ExpirationTime:1000000300 HashType:0 KeyMaxSize:32 HashLock:Fd4QDoNykDbHp30bYIghQmK4OOcnATsGilLcpt7kV8s="
+t=2001-09-09T01:51:40+0000 lvl=dbug msg=reclaimed module=embedded contract=htlc htlcInfo="Id:7efdcca315f86cdb04e84113bfc5f003fa49c4b3f9b287cd3b4a08d8ccdf6ffc TimeLocked:z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz HashLocked:z1qr4pexnnfaexqqz8nscjjcsajy5hdqfkgadvwx TokenStandard:zts1znnxxxxxxxxxxxxx9z4ulx Amount:1000000000 ExpirationTime:1000000300 HashType:0 KeyMaxSize:32 HashLock:Fd4QDoNykDbHp30bYIghQmK4OOcnATsGilLcpt7kV8s="
+`)
+	activateHtlc(z)
+
+	preimage := preimageZ
+	lock := crypto.Hash(preimage)
+
+	// user 1 creates an htlc for user 2
+	defer z.CallContract(&nom.AccountBlock{
+		Address:   g.User1.Address,
+		ToAddress: types.HtlcContract,
+		Data: definition.ABIHtlc.PackMethodPanic(definition.CreateHtlcMethodName,
+			g.User2.Address,                // hashlocked
+			int64(genesisTimestamp+300),    // expiration time
+			uint8(definition.HashTypeSHA3), // hash type
+			uint8(32),                      // max preimage size
+			lock,                           // hashlock
+		),
+		TokenStandard: types.ZnnTokenStandard,
+		Amount:        big.NewInt(10 * g.Zexp),
+	}).Error(t, nil)
+	z.InsertNewMomentum()
+	z.InsertNewMomentum()
+
+	htlcId := types.HexToHashPanic("7efdcca315f86cdb04e84113bfc5f003fa49c4b3f9b287cd3b4a08d8ccdf6ffc")
+
+	z.InsertMomentumsTo(30)
+	// Sun Sep 09 2001 01:51:40 GMT+0000
+	// check the time in the logs
+
+	// user 1 reclaims expired
+	defer z.CallContract(&nom.AccountBlock{
+		Address:   g.User1.Address,
+		ToAddress: types.HtlcContract,
+		Data: definition.ABIHtlc.PackMethodPanic(definition.ReclaimHtlcMethodName,
+			htlcId, // entry id
+		),
+		TokenStandard: types.ZnnTokenStandard,
+		Amount:        big.NewInt(0 * g.Zexp),
+	}).Error(t, nil)
+	z.InsertNewMomentum()
+	z.InsertNewMomentum()
+}
+
 func TestHtlc_proxy_unlock_default(t *testing.T) {
 	z := mock.NewMockZenon(t)
 	htlcApi := embedded.NewHtlcApi(z)

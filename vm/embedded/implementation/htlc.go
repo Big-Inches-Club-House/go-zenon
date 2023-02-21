@@ -21,19 +21,16 @@ var (
 // This means there are really 3 states: Default, ExplicitDeny, ExplicitAllow
 // And once an address has explicitly denied/allowed proxy unlock, it can no longer go back to using the default
 // This is to ensure that if we ever change the default to deny, addresses that have called the Allow method will still work as expected
-func GetHtlcProxyUnlockStatus(context vm_context.AccountVmContext, address types.Address) (*bool, error) {
+func GetHtlcProxyUnlockStatus(context vm_context.AccountVmContext, address types.Address) (bool, error) {
 	info, err := definition.GetHtlcProxyUnlockInfo(context.Storage(), address)
-	allowed := new(bool)
 	if err != nil {
 		if err == constants.ErrDataNonExistent {
 			// This defines the default behavior to allow proxy unlocks
-			*allowed = true
-			return allowed, nil
+			return true, nil
 		}
-		return nil, err
+		return false, err
 	} else {
-		allowed = &info.Allowed
-		return allowed, nil
+		return info.Allowed, nil
 	}
 }
 
@@ -99,7 +96,7 @@ func (p *CreateHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, sen
 	common.DealWithErr(err)
 
 	// can't create htlc that is already expired
-	if param.ExpirationTime <= momentum.Timestamp.Unix() {
+	if momentum.Timestamp.Unix() >= param.ExpirationTime {
 		htlcLog.Debug("invalid create - cannot create already expired", "address", sendBlock.Address, "time", momentum.Timestamp.Unix(), "expiration-time", param.ExpirationTime)
 		return nil, constants.ErrInvalidExpirationTime
 	}
@@ -170,7 +167,7 @@ func (p *ReclaimHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, se
 	}
 
 	// can only reclaim after the entry is expired
-	if htlcInfo.ExpirationTime > momentum.Timestamp.Unix() {
+	if momentum.Timestamp.Unix() < htlcInfo.ExpirationTime {
 		htlcLog.Debug("invalid reclaim - entry not expired", "id", htlcInfo.Id, "address", sendBlock.Address, "time", momentum.Timestamp.Unix(), "expiration-time", htlcInfo.ExpirationTime)
 		return nil, constants.ReclaimNotDue
 	}
@@ -235,13 +232,13 @@ func (p *UnlockHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, sen
 	allowProxyUnlock, err := GetHtlcProxyUnlockStatus(context, htlcInfo.HashLocked)
 	common.DealWithErr(err)
 	// if proxy unlock is not allowed, only hashlocked can unlock
-	if !(*allowProxyUnlock) && sendBlock.Address != htlcInfo.HashLocked {
+	if !allowProxyUnlock && sendBlock.Address != htlcInfo.HashLocked {
 		htlcLog.Debug("invalid unlock - permission denied", "id", htlcInfo.Id, "address", sendBlock.Address)
 		return nil, constants.ErrPermissionDenied
 	}
 
 	// can only unlock before expiration time
-	if momentum.Timestamp.Unix() > htlcInfo.ExpirationTime {
+	if momentum.Timestamp.Unix() >= htlcInfo.ExpirationTime {
 		htlcLog.Debug("invalid unlock - entry is expired", "id", htlcInfo.Id, "address", sendBlock.Address, "time", momentum.Timestamp.Unix(), "expiration-time", htlcInfo.ExpirationTime)
 		return nil, constants.ErrExpired
 	}
