@@ -2,8 +2,7 @@ package types
 
 var (
 	AcceleratorSpork     = NewImplementedSpork("6d2b1e6cb4025f2f45533f0fe22e9b7ce2014d91cc960471045fa64eee5a6ba3")
-	// TODO replace with actual on chain spork id
-	HtlcSpork            = NewImplementedSpork("2ac372d2d9d1dc8679519225d107bff319a72231b1189be2840b5381d0834489")
+	HtlcSpork            = NewImplementedSpork("ceb7e3808ef17ea910adda2f3ab547be4cdfb54de8400ce3683258d06be1354b")
 	ImplementedSporksMap = map[Hash]bool{
 		AcceleratorSpork.SporkId: true,
 		HtlcSpork.SporkId:        true,

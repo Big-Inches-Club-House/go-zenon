@@ -63,14 +63,14 @@ func TestHtlc_zero(t *testing.T) {
 	defer z.SaveLogs(common.EmbeddedLogger).Equals(t, `
 t=2001-09-09T01:46:50+0000 lvl=dbug msg=created module=embedded contract=spork spork="&{Id:664147f0c0a127bb4388bf8ff9a2ce777c9cc5ce9f04f9a6d418a32ef3f481c9 Name:spork-htlc Description:activate spork for htlc Activated:false EnforcementHeight:0}"
 t=2001-09-09T01:47:00+0000 lvl=dbug msg=activated module=embedded contract=spork spork="&{Id:664147f0c0a127bb4388bf8ff9a2ce777c9cc5ce9f04f9a6d418a32ef3f481c9 Name:spork-htlc Description:activate spork for htlc Activated:true EnforcementHeight:9}"
-t=2001-09-09T01:50:00+0000 lvl=dbug msg="invalid create - cannot create zero amount" module=embedded contract=htlc address=z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz
+t=2001-09-09T01:49:50+0000 lvl=dbug msg="invalid create - cannot create zero amount" module=embedded contract=htlc address=z1qzal6c5s9rjnnxd2z7dvdhjxpmmj4fmw56a0mz
 `)
 	activateHtlc(z)
 
 	lock := crypto.HashSHA256(preimageZ)
 
 	// user 1 creates an htlc for user 2
-	defer z.CallContract(&nom.AccountBlock{
+	z.InsertSendBlock(&nom.AccountBlock{
 		Address:   g.User1.Address,
 		ToAddress: types.HtlcContract,
 		Data: definition.ABIHtlc.PackMethodPanic(definition.CreateHtlcMethodName,
@@ -82,7 +82,7 @@ t=2001-09-09T01:50:00+0000 lvl=dbug msg="invalid create - cannot create zero amo
 		),
 		TokenStandard: types.ZnnTokenStandard,
 		Amount:        big.NewInt(0),
-	}).Error(t, constants.ErrInvalidTokenOrAmount)
+    }, constants.ErrInvalidTokenOrAmount, mock.NoVmChanges)
 	z.InsertNewMomentum()
 	z.InsertNewMomentum()
 

@@ -67,6 +67,12 @@ func (p *CreateHtlcMethod) ValidateSendBlock(block *nom.AccountBlock) error {
 		return err
 	}
 
+	// can't create empty htlcs
+	if block.Amount.Sign() == 0 {
+		htlcLog.Debug("invalid create - cannot create zero amount", "address", block.Address)
+		return constants.ErrInvalidTokenOrAmount
+	}
+
 	block.Data, err = definition.ABIHtlc.PackMethod(p.MethodName,
 		param.HashLocked,
 		param.ExpirationTime,
@@ -80,12 +86,6 @@ func (p *CreateHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, sen
 	if err := p.ValidateSendBlock(sendBlock); err != nil {
 		htlcLog.Debug("invalid create - syntactic validation failed", "address", sendBlock.Address, "reason", err)
 		return nil, err
-	}
-
-	// can't create empty htlcs
-	if sendBlock.Amount.Sign() == 0 {
-		htlcLog.Debug("invalid create - cannot create zero amount", "address", sendBlock.Address)
-		return nil, constants.ErrInvalidTokenOrAmount
 	}
 
 	param := new(definition.CreateHtlcParam)
@@ -150,9 +150,6 @@ func (p *ReclaimHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, se
 	err := definition.ABIHtlc.UnpackMethod(id, p.MethodName, sendBlock.Data)
 	common.DealWithErr(err)
 
-	momentum, err := context.GetFrontierMomentum()
-	common.DealWithErr(err)
-
 	htlcInfo, err := definition.GetHtlcInfo(context.Storage(), *id)
 	if err == constants.ErrDataNonExistent {
 		htlcLog.Debug("invalid reclaim - entry does not exist", "id", id, "address", sendBlock.Address)
@@ -165,6 +162,9 @@ func (p *ReclaimHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, se
 		htlcLog.Debug("invalid reclaim - permission denied", "id", htlcInfo.Id, "address", sendBlock.Address)
 		return nil, constants.ErrPermissionDenied
 	}
+
+	momentum, err := context.GetFrontierMomentum()
+	common.DealWithErr(err)
 
 	// can only reclaim after the entry is expired
 	if momentum.Timestamp.Unix() < htlcInfo.ExpirationTime {
@@ -219,9 +219,6 @@ func (p *UnlockHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, sen
 	err := definition.ABIHtlc.UnpackMethod(param, p.MethodName, sendBlock.Data)
 	common.DealWithErr(err)
 
-	momentum, err := context.GetFrontierMomentum()
-	common.DealWithErr(err)
-
 	htlcInfo, err := definition.GetHtlcInfo(context.Storage(), param.Id)
 	if err == constants.ErrDataNonExistent {
 		htlcLog.Debug("invalid unlock - entry does not exist", "id", param.Id, "address", sendBlock.Address)
@@ -236,6 +233,9 @@ func (p *UnlockHtlcMethod) ReceiveBlock(context vm_context.AccountVmContext, sen
 		htlcLog.Debug("invalid unlock - permission denied", "id", htlcInfo.Id, "address", sendBlock.Address)
 		return nil, constants.ErrPermissionDenied
 	}
+
+	momentum, err := context.GetFrontierMomentum()
+	common.DealWithErr(err)
 
 	// can only unlock before expiration time
 	if momentum.Timestamp.Unix() >= htlcInfo.ExpirationTime {

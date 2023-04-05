@@ -145,7 +145,7 @@ func isHtlcInfoKey(key []byte) bool {
 
 func unmarshalHtlcInfoKey(key []byte) (*types.Hash, error) {
 	if !isHtlcInfoKey(key) {
-		return nil, errors.Errorf("invalid key! Not htcl info key")
+		return nil, errors.Errorf("invalid key! Not htlc info key")
 	}
 	h := new(types.Hash)
 	err := h.SetBytes(key[1:])
@@ -209,7 +209,7 @@ func isHtlcProxyUnlockInfoKey(key []byte) bool {
 }
 func unmarshalHtlcProxyUnlockInfoKey(key []byte) (*types.Address, error) {
 	if !isHtlcProxyUnlockInfoKey(key) {
-		return nil, errors.Errorf("invalid key! Not htcl proxy-unlock info key")
+		return nil, errors.Errorf("invalid key! Not htlc proxy-unlock info key")
 	}
 	a := new(types.Address)
 	err := a.SetBytes(key[1:])
